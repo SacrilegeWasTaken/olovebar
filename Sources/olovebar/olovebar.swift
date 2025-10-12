@@ -3,7 +3,6 @@ import MetalKit
 import CoreGraphics
 import ApplicationServices
 
-
 final class BarWindow: NSWindow { 
     override var canBecomeKey: Bool { 
         false 
@@ -15,12 +14,12 @@ final class BarWindow: NSWindow {
 
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+
     var window: BarWindow!
     var metalView: MTKView!
 
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
-        print("Application did finish launching")
         setupWindow()
         subscribeNotifications()
     }
@@ -28,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupWindow() {
-        print("Setting up window...")
         let barHeight: CGFloat = 35
         let barHorizontalCut: CGFloat = 10
         let barVerticalCut: CGFloat = 4
@@ -104,12 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     @objc private func updateState(_ notification: Notification) {
-        print("Updating state...")
         guard let userInfo = notification.userInfo,
               let runningApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
               let appName = runningApp.localizedName else { return }
 
-        print("Active application: \(appName)")
+        print("Active app changed to: \(appName)")
         
         if isAppFullscreen(pid: runningApp.processIdentifier) {
             print("The app is in fullscreen mode. Hiding the bar.")
