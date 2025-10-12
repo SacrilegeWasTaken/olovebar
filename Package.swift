@@ -20,7 +20,10 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .executableTarget(
             name: "olovebar",
-            dependencies: []
+            dependencies: [],
+            resources: [
+                .process("Shaders.metal") // <-- включаем Shaders.metal
+            ]
         ),
     ]
 )
