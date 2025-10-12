@@ -1,6 +1,7 @@
 import Cocoa
 import MetalKit
 import CoreGraphics
+import ApplicationServices
 
 
 final class BarWindow: NSWindow { 
@@ -17,12 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: BarWindow!
     var metalView: MTKView!
 
+
     public func applicationDidFinishLaunching(_ notification: Notification) {
         print("Application did finish launching")
         setupWindow()
         subscribeNotifications()
     }
     
+
     @MainActor
     private func setupWindow() {
         print("Setting up window...")
@@ -77,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+
     private func subscribeNotifications() {
         // Subscribe to notifications by system events
         let ncs = NSWorkspace.shared.notificationCenter
@@ -98,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
+    @MainActor
     @objc private func updateState(_ notification: Notification) {
         print("Updating state...")
         guard let userInfo = notification.userInfo,
@@ -105,5 +110,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               let appName = runningApp.localizedName else { return }
 
         print("Active application: \(appName)")
+        
+        if isAppFullscreen(pid: runningApp.processIdentifier) {
+            print("The app is in fullscreen mode. Hiding the bar.")
+            window.orderOut(nil)
+        } else {
+            print("The app is not in fullscreen mode. Showing the bar.")
+            window.orderFront(nil)
+        }
+    }
+
+
+    private func isAppFullscreen(pid: pid_t) -> Bool {
+        let appElement = AXUIElementCreateApplication(pid)
+        
+        var frontWindow: AnyObject?
+        let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &frontWindow)
+        
+        guard result == .success, let window = frontWindow else {
+            return false
+        }
+        
+        var fullscreenValue: AnyObject?
+        let fullscreenResult = AXUIElementCopyAttributeValue(window as! AXUIElement, "AXFullScreen" as CFString, &fullscreenValue)
+        
+        if fullscreenResult == .success, let fullscreen = fullscreenValue as? Bool {
+            return fullscreen
+        }
+        
+        return false
     }
 }
