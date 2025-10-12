@@ -11,7 +11,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: BarWindow!
     var metalView: MTKView!
-    var renderer: BarRenderer!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindow()
@@ -47,26 +46,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let container = NSView(frame: frame)
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.clear.cgColor
+        container.layer?.backgroundColor = NSColor.gray.withAlphaComponent(0.5).cgColor
         // ensure container's layer is not opaque so alpha can show through
         container.layer?.isOpaque = false
         container.layer?.cornerRadius = 16
         container.layer?.masksToBounds = true
 
-        metalView = MTKView(frame: container.bounds)
-        metalView.autoresizingMask = [.width, .height]
-        metalView.device = MTLCreateSystemDefaultDevice()
-        metalView.isPaused = false
-        metalView.enableSetNeedsDisplay = true
-        metalView.framebufferOnly = false
-        metalView.wantsLayer = true
-        metalView.layer?.backgroundColor = NSColor.clear.cgColor
-        metalView.layer?.isOpaque = false
-        metalView.layer?.cornerRadius = 16
-        metalView.layer?.masksToBounds = true
 
-        renderer = BarRenderer(metalView: metalView)
-        container.addSubview(metalView)
         window.contentView = container
         window.makeKeyAndOrderFront(nil)
     }
