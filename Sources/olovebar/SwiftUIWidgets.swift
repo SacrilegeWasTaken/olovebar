@@ -1,5 +1,6 @@
 import SwiftUI
 
+let clearColor = NSColor.init(Color.init(cgColor: CGColor.init(red: 0, green: 0, blue: 0, alpha: 0)))
 
 struct BarContentView: View {
     @State private var toggle = false
@@ -88,8 +89,10 @@ struct BarContentView: View {
                 .cornerRadius(cornerRadius)
                 .glassEffect()
         }
+        .background(.clear)
         .frame(width: width, height: height)
         .cornerRadius(cornerRadius)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
     // MARK: - Time Button
@@ -136,8 +139,10 @@ struct BarContentView: View {
                             .glassEffect(id == aerospaceModel.focused ? .clear.tint(.orange) : .clear)
                             .glassEffectID(id, in: aerospaceNamespace)
                     }
-                    .padding(0.4)
-                    .buttonStyle(.plain)
+                    .background(.clear)
+                    .cornerRadius(cornerRadius)
+                    .frame(width: width, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     .animation(.easeInOut(duration: 0.15), value: aerospaceModel.focused)
                 }
             }
@@ -427,7 +432,10 @@ extension BarContentView {
             .frame(width: width, height: height)
             .glassEffect()
         }
-        .buttonStyle(.plain)
+        .background(.clear)
+        .cornerRadius(cornerRadius)
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onAppear {
             wifiModel.update()
         }
@@ -450,7 +458,10 @@ extension BarContentView {
             .frame(width: width, height: height)
             .glassEffect()
         }
-        .buttonStyle(.plain)
+        .background(.clear)
+        .cornerRadius(cornerRadius)
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onAppear {
             batteryModel.startTimer()
         }
@@ -467,7 +478,10 @@ extension BarContentView {
                 .frame(width: width, height: height)
                 .glassEffect()
         }
-        .buttonStyle(.plain)
+        .background(.clear)
+        .cornerRadius(cornerRadius)
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onAppear { languageModel.update() }
     }
 
@@ -479,13 +493,13 @@ extension BarContentView {
             Image(systemName: "speaker.wave.2.fill")
                 .frame(width: width, height: height)
                 .foregroundColor(.white)
-                .background(.clear)
                 .cornerRadius(cornerRadius)
                 .glassEffect()
         }
-        .frame(width: width, height: height)
+        .background(.clear)
         .cornerRadius(cornerRadius)
-        .buttonStyle(.plain)
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .popover(isPresented: $volumeModel.isPopoverPresented) {
             VStack(spacing: 12) {
                 Slider(value: Binding(get: { volumeModel.level }, set: { new in
@@ -507,7 +521,7 @@ extension BarContentView {
                 .frame(width: 200)
                 .padding()
             }
-            .frame(width: 240, height: 50)
+            .frame(width: 240, height: 40)
         }
     }
 
