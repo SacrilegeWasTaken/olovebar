@@ -1,5 +1,6 @@
 import Cocoa
 import MetalKit
+import SwiftUI
 
 final class BarWindow: NSWindow {
     override var canBecomeKey: Bool { false }
@@ -37,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.isOpaque = false
-        window.backgroundColor = .clear
+        window.backgroundColor = NSColor(cgColor: CGColor(red: 0, green: 0, blue: 0, alpha: 0.0))
         window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
@@ -52,6 +53,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         container.layer?.cornerRadius = 16
         container.layer?.masksToBounds = true
 
+        // Host a SwiftUI view inside AppKit
+        let hostingView = NSHostingView(rootView: BarContentView()
+                                            .frame(maxWidth: .infinity, maxHeight: .infinity))
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(hostingView)
+
+        // Constrain hosting view to container
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
 
         window.contentView = container
         window.makeKeyAndOrderFront(nil)
