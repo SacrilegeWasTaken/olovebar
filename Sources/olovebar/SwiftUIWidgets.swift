@@ -19,6 +19,10 @@ struct BarContentView: View {
         let timeButtonWidth: CGFloat = 190
         let widgetHeight: CGFloat = 33
         let cornerRadius: CGFloat = 16
+        let wifiWidth: CGFloat = 90
+        let batteryWidth: CGFloat = 70
+        let languageWidth: CGFloat = 48
+        let volumeWidth: CGFloat = 48
 
         GlassEffectContainer() {
             let view = HStack(spacing: 0) {
@@ -34,10 +38,10 @@ struct BarContentView: View {
 
                 // Right-side widgets: wifi, battery, language, volume
                 HStack(spacing: 8) {
-                    self.wifiModel.wifiWidget(width: 90, height: widgetHeight, cornerRadius: cornerRadius)
-                    self.batteryModel.batteryWidget(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
-                    self.languageModel.languageWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
-                    self.volumeModel.volumeWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+                    self.wifiModel.wifiWidget(width: wifiWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    self.batteryModel.batteryWidget(width: batteryWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    self.languageModel.languageWidget(width: languageWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    self.volumeModel.volumeWidget(width: volumeWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
                 }
 
