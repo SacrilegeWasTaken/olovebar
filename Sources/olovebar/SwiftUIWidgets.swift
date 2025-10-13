@@ -1,5 +1,6 @@
 import SwiftUI
 
+
 struct BarContentView: View {
     @State private var toggle = false
     @StateObject private var aerospaceModel = AerospaceModel() // ObservableObject для спейсов
@@ -18,32 +19,34 @@ struct BarContentView: View {
         let widgetHeight: CGFloat = 33
         let cornerRadius: CGFloat = 16
 
-        let view = HStack(spacing: 0) {
-            // Left: Apple logo
-            appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
+        GlassEffectContainer() {
+            let view = HStack(spacing: 0) {
+                // Left: Apple logo
+                appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
 
-            // Aerospace widget
-            aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
+                // Aerospace widget
+                aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
 
-            activeApp(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
+                activeApp(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
 
-            Spacer()
+                Spacer()
 
-            // Right-side widgets: wifi, battery, language, volume
-            HStack(spacing: 8) {
-                wifiWidget(width: 90, height: widgetHeight, cornerRadius: cornerRadius)
-                batteryWidget(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
-                languageWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
-                volumeWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+                // Right-side widgets: wifi, battery, language, volume
+                HStack(spacing: 8) {
+                    wifiWidget(width: 90, height: widgetHeight, cornerRadius: cornerRadius)
+                    batteryWidget(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
+                    languageWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+                    volumeWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+                    timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                }
+
+                // Right: live-updating clock
             }
-
-            // Right: live-updating clock
-            timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
-        }
-        if self.toggle {
-            view.glassEffect()
-        } else {
-            view
+            if self.toggle {
+                view.glassEffect()
+            } else {
+                view
+            }
         }
     }
 
@@ -474,10 +477,14 @@ extension BarContentView {
             withAnimation { volumeModel.isPopoverPresented.toggle() }
         }) {
             Image(systemName: "speaker.wave.2.fill")
-                .foregroundColor(.white)
                 .frame(width: width, height: height)
+                .foregroundColor(.white)
+                .background(.clear)
+                .cornerRadius(cornerRadius)
                 .glassEffect()
         }
+        .frame(width: width, height: height)
+        .cornerRadius(cornerRadius)
         .buttonStyle(.plain)
         .popover(isPresented: $volumeModel.isPopoverPresented) {
             VStack(spacing: 12) {
