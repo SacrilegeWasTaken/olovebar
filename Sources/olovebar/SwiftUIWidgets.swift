@@ -3,6 +3,8 @@ import SwiftUI
 struct BarContentView: View {
     @State private var toggle = false
     @StateObject private var aerospaceModel = AerospaceModel() // ObservableObject для спейсов
+    @Namespace private var aerospaceNamespace    
+    @State private var isSingleShape: Bool = true
 
     var body: some View {
         let appleButtonWidth: CGFloat = 45
@@ -10,21 +12,19 @@ struct BarContentView: View {
         let widgetHeight: CGFloat = 33
         let cornerRadius: CGFloat = 16
 
-        GlassEffectContainer {
-            HStack(spacing: 0) {
-                // Left: Apple logo
-                appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
+        HStack(spacing: 0) {
+            // Left: Apple logo
+            appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
 
-                // Aerospace widget
-                aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
+            // Aerospace widget
+            aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
 
-                Spacer()
+            Spacer()
 
-                // Right: live-updating clock
-                timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
-            }
-            //.glassEffect()
+            // Right: live-updating clock
+            timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
         }
+        //.glassEffect()
     }
 
     // MARK: - Apple Logo Button
@@ -71,27 +71,33 @@ struct BarContentView: View {
 
     // MARK: - Aerospace Widget
     func aerospaceWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        HStack(spacing: 4) { 
-            ForEach(aerospaceModel.workspaces, id: \.self) { id in
-                Button(action: {
-                    aerospaceModel.focus(id)
-                }) {
-                    Text(id)
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(width: width, height: height)
-                        .foregroundColor(.white)
-                        .background(.clear)
-                        .glassEffect(id == aerospaceModel.focused ? .clear.tint(.orange) : .clear)
+        GlassEffectContainer {            
+            HStack(spacing: 4) { 
+                ForEach(aerospaceModel.workspaces, id: \.self) { id in
+                    Button(action: {
+                        withAnimation {
+                            isSingleShape.toggle()
+                            aerospaceModel.focus(id)
+                        }
+                    }) {
+                        Text(id)
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: width, height: height)
+                            .foregroundColor(.white)
+                            .background(.clear)
+                            .glassEffect(id == aerospaceModel.focused ? .clear.tint(.orange) : .clear)
+                            .glassEffectID(id, in: aerospaceNamespace)
+                    }
+                    .padding(2)
+                    .buttonStyle(.plain)
+                    .animation(.easeInOut(duration: 0.15), value: aerospaceModel.focused)
                 }
-                .padding(2)
-                .buttonStyle(.plain)
-                .animation(.easeInOut(duration: 0.15), value: aerospaceModel.focused)
             }
-        }
-        .padding(.horizontal, 16)
-        .frame(height: height)
-        .onAppear {
-            aerospaceModel.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
+            .padding(.horizontal, 16)
+            .frame(height: height)
+            .onAppear {
+                aerospaceModel.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
+            }
         }
     }
 }
