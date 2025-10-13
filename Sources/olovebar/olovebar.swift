@@ -38,15 +38,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.level = .statusBar
+        window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         window.hasShadow = false
         window.orderBack(nil)
 
-        let container = NSView(frame: frame)
+        let container = NSGlassEffectView(frame: frame)
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.gray.withAlphaComponent(0.5).cgColor
+        container.layer?.backgroundColor = NSColor.gray.withAlphaComponent(0.0).cgColor
         // ensure container's layer is not opaque so alpha can show through
         container.layer?.isOpaque = false
         container.layer?.cornerRadius = 16
