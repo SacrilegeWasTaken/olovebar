@@ -5,6 +5,11 @@ struct BarContentView: View {
     @StateObject private var aerospaceModel = AerospaceModel() // ObservableObject для спейсов
     @Namespace private var aerospaceNamespace    
     @State private var isSingleShape: Bool = true
+    // New widget models
+    @StateObject private var wifiModel = WiFiModel()
+    @StateObject private var batteryModel = BatteryModel()
+    @StateObject private var languageModel = LanguageModel()
+    @StateObject private var volumeModel = VolumeModel()
 
     var body: some View {
         let appleButtonWidth: CGFloat = 45
@@ -20,6 +25,14 @@ struct BarContentView: View {
             aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
 
             Spacer()
+
+            // Right-side widgets: wifi, battery, language, volume
+            HStack(spacing: 8) {
+                wifiWidget(width: 90, height: widgetHeight, cornerRadius: cornerRadius)
+                batteryWidget(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
+                languageWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+                volumeWidget(width: 48, height: widgetHeight, cornerRadius: cornerRadius)
+            }
 
             // Right: live-updating clock
             timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
@@ -104,22 +117,22 @@ struct BarContentView: View {
 
 // MARK: - Aerospace Model
 
+@MainActor
 final class AerospaceModel: ObservableObject {
     @Published var workspaces: [String] = []
     @Published var focused: String?
 
     private var timer: Timer?
 
-    @MainActor
     func startTimer(interval: TimeInterval) {
         timer?.invalidate()
         updateData()
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.updateData()
-            }
-        }
+        // Use selector-based timer to avoid Sendable capture issues
+        timer = Timer.scheduledTimer(timeInterval: interval, target: self, selector: #selector(timerTick(_:)), userInfo: nil, repeats: true)
+    }
+
+    @objc private func timerTick(_ t: Timer) {
+        updateData()
     }
 
 
@@ -134,7 +147,6 @@ final class AerospaceModel: ObservableObject {
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    @MainActor
     func updateData() {
         let all = runCommand("aerospace list-workspaces --all")
         let focused = runCommand("aerospace list-workspaces --focused")
@@ -146,5 +158,264 @@ final class AerospaceModel: ObservableObject {
 
     func focus(_ id: String) {
         _ = runCommand("aerospace workspace \(id)")
+    }
+}
+
+// MARK: - WiFi, Battery, Language, Volume Models and Widget Views
+
+@MainActor
+final class WiFiModel: ObservableObject {
+    @Published var ssid: String? = nil
+    @Published var stateIcon: String = "wifi.slash"
+
+    init() {
+        update()
+    }
+
+    private func run(_ cmd: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func update() {
+        // Try to read Wi‑Fi SSID via airport
+        let cmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk -F': ' '/ SSID/ {print $2}'"
+        let ssidOut = run(cmd)
+        if ssidOut.isEmpty {
+            ssid = nil
+            stateIcon = "wifi.slash"
+        } else {
+            ssid = ssidOut
+            stateIcon = "wifi"
+        }
+    }
+}
+
+@MainActor
+final class BatteryModel: ObservableObject {
+    @Published var percentage: Int = 100
+    @Published var isCharging: Bool = false
+
+    private var timer: Timer?
+
+    init() {
+        startTimer()
+    }
+
+    func startTimer() {
+        timer?.invalidate()
+        update()
+        timer = Timer.scheduledTimer(timeInterval: 15.0, target: self, selector: #selector(batteryTimerTick(_:)), userInfo: nil, repeats: true)
+    }
+    @objc private func batteryTimerTick(_ t: Timer) {
+        update()
+    }
+
+    private func run(_ cmd: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func update() {
+        // Use pmset -g batt to get battery percentage and charging state
+        let out = run("pmset -g batt")
+        // Example line: ' -InternalBattery-0 (id=1234567) 85%; discharging; ...'
+        if let percentMatch = out.split(separator: "\n").first(where: { $0.contains("%") }) {
+            let s = String(percentMatch)
+            var newPercent = percentage
+            if let pRange = s.range(of: "\\d+%", options: .regularExpression) {
+                let pStr = s[pRange].replacingOccurrences(of: "%", with: "")
+                newPercent = Int(pStr) ?? percentage
+            }
+            let charging = s.contains("charging") || s.contains("AC attached") || s.contains("charged")
+            self.percentage = newPercent
+            self.isCharging = charging
+        }
+    }
+}
+
+@MainActor
+final class LanguageModel: ObservableObject {
+    @Published var current: String = "EN"
+
+    init() {
+        update()
+    }
+
+    private func run(_ cmd: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func update() {
+        // Try to get current input source using AppleScript
+        let script = "osascript -e 'tell application \"System Events\" to get name of first input source whose selected is true'"
+        let out = run(script)
+        self.current = out.isEmpty ? "EN" : out
+    }
+
+    func toggle() {
+        // Switch to the next input source using AppleScript
+        let script = "osascript -e 'tell application \"System Events\" to select (first input source whose selected is false)'"
+        // run synchronously (quick) and update
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", script]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        _ = pipe.fileHandleForReading.readDataToEndOfFile()
+        Thread.sleep(forTimeInterval: 0.2)
+        update()
+    }
+}
+
+@MainActor
+final class VolumeModel: ObservableObject {
+    @Published var level: Double = 50
+    @Published var isPopoverPresented: Bool = false
+
+    init() {
+        update()
+    }
+
+    private func run(_ cmd: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func update() {
+        // Get output volume using AppleScript
+        let out = run("osascript -e 'output volume of (get volume settings)'")
+        if let v = Double(out) { level = v }
+    }
+
+    @MainActor
+    func set(_ value: Double) {
+        let v = Int(value)
+        // run applescript to set system volume
+        _ = run("osascript -e 'set volume output volume \(v)'")
+        // Also update cached value
+        self.level = value
+    }
+}
+
+extension BarContentView {
+    // WiFi widget (read-only)
+    func wifiWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        Button(action: {}) {
+            HStack(spacing: 6) {
+                Image(systemName: wifiModel.stateIcon)
+                    .foregroundColor(.white)
+                Text(wifiModel.ssid ?? "No Wi‑Fi")
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+            }
+            .frame(width: width, height: height)
+            .glassEffect()
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            wifiModel.update()
+        }
+    }
+
+    // Battery widget
+    func batteryWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        Button(action: {
+            // open battery preferences
+            let url = URL(fileURLWithPath: "/System/Applications/System Settings.app")
+            NSWorkspace.shared.open(url)
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: batteryModel.isCharging ? "battery.100.bolt" : "battery.100")
+                    .foregroundColor(.white)
+                Text("\(batteryModel.percentage)%")
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+            }
+            .frame(width: width, height: height)
+            .glassEffect()
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            batteryModel.startTimer()
+        }
+    }
+
+    // Language widget
+    func languageWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        Button(action: {
+            languageModel.toggle()
+        }) {
+            Text(languageModel.current)
+                .foregroundColor(.white)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: width, height: height)
+                .glassEffect()
+        }
+        .buttonStyle(.plain)
+        .onAppear { languageModel.update() }
+    }
+
+    // Volume widget with popover slider
+    func volumeWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        Button(action: {
+            withAnimation { volumeModel.isPopoverPresented.toggle() }
+        }) {
+            Image(systemName: "speaker.wave.2.fill")
+                .foregroundColor(.white)
+                .frame(width: width, height: height)
+                .glassEffect()
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $volumeModel.isPopoverPresented) {
+            VStack(spacing: 12) {
+                Slider(value: Binding(get: { volumeModel.level }, set: { new in
+                    volumeModel.level = new
+                    // set system volume
+                        let cmd = "osascript -e 'set volume output volume \(Int(new))'"
+                    _ = runShell(cmd)
+                }), in: 0...100)
+                .frame(width: 200)
+                .padding()
+            }
+            .frame(width: 240, height: 80)
+        }
+    }
+
+    private func runShell(_ cmd: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.arguments = ["-c", cmd]
+        task.launchPath = "/bin/zsh"
+        task.launch()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
