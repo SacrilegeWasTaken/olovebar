@@ -30,14 +30,3 @@ struct BarContentView: View {
         }
     }
 }
-
-#if DEBUG
-import SwiftUI
-struct BarContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        BarContentView()
-            .frame(width: 600, height: 30)
-            .background(Color.gray)
-    }
-}
-#endif
