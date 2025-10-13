@@ -10,6 +10,7 @@ struct BarContentView: View {
     @StateObject private var batteryModel = BatteryModel()
     @StateObject private var languageModel = LanguageModel()
     @StateObject private var volumeModel = VolumeModel()
+    @StateObject private var activeAppModel = ActiveAppModel()
 
     var body: some View {
         let appleButtonWidth: CGFloat = 45
@@ -17,12 +18,14 @@ struct BarContentView: View {
         let widgetHeight: CGFloat = 33
         let cornerRadius: CGFloat = 16
 
-        HStack(spacing: 0) {
+        let view = HStack(spacing: 0) {
             // Left: Apple logo
             appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
 
             // Aerospace widget
             aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
+
+            activeApp(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
 
             Spacer()
 
@@ -37,8 +40,35 @@ struct BarContentView: View {
             // Right: live-updating clock
             timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
         }
-        //.glassEffect()
+        if self.toggle {
+            view.glassEffect()
+        } else {
+            view
+        }
     }
+
+
+    func activeApp(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        Button(action: {
+            // lol
+        }) {
+            HStack(spacing: 0) {
+                Text(activeAppModel.appName)
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .fixedSize() // текст задаёт ширину HStack
+            }
+            .frame(minWidth: width) // минимальная ширина
+            .frame(height: height)
+            .background(.clear)
+            .padding(.horizontal, 16)
+            .glassEffect() // применяем к HStack
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
 
 
 
@@ -141,6 +171,7 @@ final class AerospaceModel: ObservableObject {
     private func runCommand(_ command: String) -> String {
         let task = Process()
         let pipe = Pipe()
+        task.standardError = Pipe()
         task.standardOutput = pipe
         task.arguments = ["-c", command]
         task.launchPath = "/bin/zsh"
@@ -159,7 +190,9 @@ final class AerospaceModel: ObservableObject {
     }
 
     func focus(_ id: String) {
-        _ = runCommand("aerospace workspace \(id)")
+        DispatchQueue.main.async {
+            _ = self.runCommand("aerospace workspace \(id)")
+        }
     }
 }
 
@@ -177,7 +210,9 @@ final class WiFiModel: ObservableObject {
     private func run(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
+        task.standardError = Pipe()
         task.standardOutput = pipe
+        task.standardError = Pipe()
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
         task.launch()
@@ -186,9 +221,21 @@ final class WiFiModel: ObservableObject {
     }
 
     func update() {
-        // Try to read Wi‑Fi SSID via airport
-        let cmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk -F': ' '/ SSID/ {print $2}'"
-        let ssidOut = run(cmd)
+        // Try to read Wi‑Fi SSID via airport if present, otherwise fallback to networksetup
+        let airportPath = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
+        var ssidOut = ""
+        if FileManager.default.fileExists(atPath: airportPath) {
+            let cmd = "\(airportPath) -I | awk -F': ' '/ SSID/ {print $2}'"
+            ssidOut = run(cmd)
+        } else {
+            // find Wi‑Fi device (en0/en1...) and query networksetup
+            let devCmd = "networksetup -listallhardwareports | awk '/Wi-?Fi|AirPort/{getline; print $2; exit}'"
+            let dev = run(devCmd)
+            if !dev.isEmpty {
+                let cmd = "networksetup -getairportnetwork \(dev)"
+                ssidOut = run(cmd).replacingOccurrences(of: "Current Wi-Fi Network: ", with: "").replacingOccurrences(of: "You are not associated with an AirPort network.", with: "")
+            }
+        }
         if ssidOut.isEmpty {
             ssid = nil
             stateIcon = "wifi.slash"
@@ -222,6 +269,7 @@ final class BatteryModel: ObservableObject {
     private func run(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
+        task.standardError = Pipe()
         task.standardOutput = pipe
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
@@ -259,6 +307,7 @@ final class LanguageModel: ObservableObject {
     private func run(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
+        task.standardError = Pipe()
         task.standardOutput = pipe
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
@@ -280,6 +329,7 @@ final class LanguageModel: ObservableObject {
         // run synchronously (quick) and update
         let task = Process()
         let pipe = Pipe()
+        task.standardError = Pipe()
         task.standardOutput = pipe
         task.arguments = ["-c", script]
         task.launchPath = "/bin/zsh"
@@ -323,6 +373,40 @@ final class VolumeModel: ObservableObject {
         _ = run("osascript -e 'set volume output volume \(v)'")
         // Also update cached value
         self.level = value
+    }
+}
+
+@MainActor
+final class ActiveAppModel: ObservableObject {
+    @Published var bundleID: String = ""
+    @Published var appName: String = ""
+
+    private var timer: Timer?
+
+    init() {
+        startTimer()
+    }
+
+    func startTimer() {
+        timer?.invalidate()
+        update()
+        timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(tick(_:)), userInfo: nil, repeats: true)
+    }
+
+    @objc private func tick(_ t: Timer) {
+        update()
+    }
+
+    func update() {
+        if let app = NSWorkspace.shared.frontmostApplication {
+            let name = app.localizedName ?? ""
+            let bid = app.bundleIdentifier ?? ""
+            self.appName = name
+            self.bundleID = bid
+        } else {
+            self.appName = "None"
+            self.bundleID = ""
+        }
     }
 }
 
@@ -402,7 +486,15 @@ extension BarContentView {
                     // set system volume
                     DispatchQueue.global(qos: .userInitiated).async {
                         let cmd = "osascript -e 'set volume output volume \(Int(new))'"
-                        _ = BarContentView.runShell(cmd)
+                        // run inline to avoid calling main-actor isolated helper
+                        let task = Process()
+                        let pipe = Pipe()
+                        task.standardError = Pipe()
+                        task.standardOutput = pipe
+                        task.arguments = ["-c", cmd]
+                        task.launchPath = "/bin/zsh"
+                        task.launch()
+                        _ = pipe.fileHandleForReading.readDataToEndOfFile()
                     }
                 }), in: 0...100)
                 .frame(width: 200)
@@ -412,10 +504,11 @@ extension BarContentView {
         }
     }
 
-    // Removed @MainActor to allow background thread usage
+
     static func runShell(_ cmd: String) -> String {
-        let task = Process()
-        let pipe = Pipe()
+    let task = Process()
+    let pipe = Pipe()
+    task.standardError = Pipe()
         task.standardOutput = pipe
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
