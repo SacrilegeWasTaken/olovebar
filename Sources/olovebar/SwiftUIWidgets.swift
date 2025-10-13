@@ -40,6 +40,8 @@ struct BarContentView: View {
         //.glassEffect()
     }
 
+
+
     // MARK: - Apple Logo Button
     func appleButton(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
         Button(action: {
@@ -398,17 +400,20 @@ extension BarContentView {
                 Slider(value: Binding(get: { volumeModel.level }, set: { new in
                     volumeModel.level = new
                     // set system volume
+                    DispatchQueue.global(qos: .userInitiated).async {
                         let cmd = "osascript -e 'set volume output volume \(Int(new))'"
-                    _ = runShell(cmd)
+                        _ = BarContentView.runShell(cmd)
+                    }
                 }), in: 0...100)
                 .frame(width: 200)
                 .padding()
             }
-            .frame(width: 240, height: 80)
+            .frame(width: 240, height: 50)
         }
     }
 
-    private func runShell(_ cmd: String) -> String {
+    // Removed @MainActor to allow background thread usage
+    static func runShell(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
         task.standardOutput = pipe
