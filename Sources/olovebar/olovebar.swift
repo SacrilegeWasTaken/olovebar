@@ -45,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.hasShadow = false
         window.orderBack(nil)
 
-        let container = NSGlassEffectView(frame: frame)
+        let container = NSView(frame: frame)
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.gray.withAlphaComponent(0.0).cgColor
         // ensure container's layer is not opaque so alpha can show through
