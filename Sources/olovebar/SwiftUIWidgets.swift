@@ -88,12 +88,12 @@ struct BarContentView: View {
                             .glassEffect(id == aerospaceModel.focused ? .clear.tint(.orange) : .clear)
                             .glassEffectID(id, in: aerospaceNamespace)
                     }
-                    .padding(2)
+                    .padding(0.4)
                     .buttonStyle(.plain)
                     .animation(.easeInOut(duration: 0.15), value: aerospaceModel.focused)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
                 aerospaceModel.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
