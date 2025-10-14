@@ -1,18 +1,19 @@
 import SwiftUI
-import Widgets
+import MacroAPI
 
 let clearColor = NSColor.init(Color.init(cgColor: CGColor.init(red: 0, green: 0, blue: 0, alpha: 0)))
 
+@LogFunctions(.OLoveBar)
 struct BarContentView: View {
     @State private var theme_toggle = false
-    @StateObject private var aerospaceModel = Widgets.AerospaceModel() // ObservableObject для спейсов
 
-    // New widget models
-    @StateObject private var wifiModel = Widgets.WiFiModel()
-    @StateObject private var batteryModel = Widgets.BatteryModel()
-    @StateObject private var languageModel = Widgets.LanguageModel()
-    @StateObject private var volumeModel = Widgets.VolumeModel()
-    @StateObject private var activeAppModel = Widgets.ActiveAppModel()
+    @StateObject private var aerospaceModel = AerospaceModel()
+    @StateObject private var wifiModel = WiFiModel()
+    @StateObject private var batteryModel = BatteryModel()
+    @StateObject private var languageModel = LanguageModel()
+    @StateObject private var volumeModel = VolumeModel()
+    @StateObject private var activeAppModel = ActiveAppModel()
+
 
     var body: some View {
         let appleButtonWidth: CGFloat = 45
@@ -30,13 +31,13 @@ struct BarContentView: View {
                 appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
 
                 // Aerospace widget
-                self.aerospaceModel.aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
+                aerospaceWidget(width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
 
                 self.activeAppModel.activeApp(width: 70, height: widgetHeight, cornerRadius: cornerRadius)
 
                 Spacer()
 
-                // Right-side widgets: wifi, battery, language, volume
+                // Right-side  wifi, battery, language, volume
                 HStack(spacing: 8) {
                     self.wifiModel.wifiWidget(width: wifiWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     self.batteryModel.batteryWidget(width: batteryWidth, height: widgetHeight, cornerRadius: cornerRadius)
@@ -100,6 +101,39 @@ struct BarContentView: View {
             }
             .frame(width: width, height: height)
             .cornerRadius(cornerRadius)
+        }
+    }
+
+    func aerospaceWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
+        GlassEffectContainer { 
+            HStack(spacing: 4) { 
+                let _ = debug("Updating UI. Focused: \(String(describing: self.focused))")
+                ForEach(aerospaceModel.workspaces, id: \.self) { id in
+                    Button(action: {
+                        withAnimation {
+                            self.aerospaceModel.focus(id)
+                        }
+                    }) {
+                        let _ = self.debug("Drawing text UI")
+                        Text(id)
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: width, height: height)
+                            .foregroundColor(.white)
+                            .background(.clear)
+                            .glassEffect(id == self.aerospaceModel.focused ? .clear.tint(.orange) : .clear)
+                    }
+                    .background(.clear)
+                    .cornerRadius(cornerRadius)
+                    .frame(width: width, height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .animation(.easeInOut(duration: 0.15), value: self.aerospaceModel.focused)
+                }
+            }
+            .padding(.horizontal, 26)
+            .frame(height: height)
+            .onAppear {
+                self.aerospaceModel.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
+            }
         }
     }
 

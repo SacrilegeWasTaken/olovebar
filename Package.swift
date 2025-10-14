@@ -42,19 +42,12 @@ let package = Package(
             dependencies: []
         ),
 
-        // MARK: - Widgets (использует макрос)
-        .target(
-            name: "Widgets",
-            dependencies: [
-                "Utilities",
-                "MacroAPI" // ✅ теперь зависимость от API, не от плагина
-            ]
-        ),
+
 
         // MARK: - Исполняемый таргет
         .executableTarget(
             name: "OLoveBar",
-            dependencies: ["Widgets", "Utilities"]
+            dependencies: ["Utilities", "MacroAPI"]
         )
     ]
 )

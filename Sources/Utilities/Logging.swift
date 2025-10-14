@@ -1,10 +1,10 @@
 @usableFromInline
 let modules: [LogModules] = [
-    .OLoveBar, 
+    // .OLoveBar, 
     .Utilities, 
     .Widgets([
         .activeAppModel, 
-        .aerospaceModel, 
+        // .aerospaceModel, 
         .appleLogoModel, 
         .batteryModel, 
         .dateTimeModel, 
