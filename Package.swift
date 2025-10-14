@@ -1,5 +1,4 @@
 // swift-tools-version: 6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 import CompilerPluginSupport
@@ -10,46 +9,52 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
-        .executable(
-            name: "olovebar",
-            targets: ["OLoveBar"]
-        ),
-        .library(
-            name: "Macro", 
-            targets: ["Macro"]
-        )
+        // 👇 Макросы теперь доступны как отдельный API-модуль
+        .library(name: "MacroAPI", targets: ["MacroAPI"]),
+        .executable(name: "olovebar", targets: ["OLoveBar"])
     ],
     dependencies: [
-        // SwiftSyntax 
         .package(url: "https://github.com/apple/swift-syntax.git", from: "602.0.0")
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
-        .executableTarget(
-            name: "OLoveBar",
-            dependencies: ["Widgets", "Utilities"],
-            path: "Sources/OLoveBar"
-        ),
+        // MARK: - Macro Plugin (реализация)
         .macro(
-            name: "Macro",
+            name: "MacroPlugin",
             dependencies: [
-                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"), 
-            ],
-            path: "Sources/Macro"
+                "Utilities",
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
+            ]
         ),
+
+        // MARK: - Macro API (интерфейс)
         .target(
-            name: "Widgets",
-            dependencies: ["Utilities", "Macro"],
-            path: "Sources/Widgets"
+            name: "MacroAPI",
+            dependencies: [
+                "Utilities",
+                "MacroPlugin"
+            ]
         ),
+
+        // MARK: - Utilities
         .target(
             name: "Utilities",
-            dependencies: ["Macro"],
-            path: "Sources/Utilities"
+            dependencies: []
+        ),
+
+        // MARK: - Widgets (использует макрос)
+        .target(
+            name: "Widgets",
+            dependencies: [
+                "Utilities",
+                "MacroAPI" // ✅ теперь зависимость от API, не от плагина
+            ]
+        ),
+
+        // MARK: - Исполняемый таргет
+        .executableTarget(
+            name: "OLoveBar",
+            dependencies: ["Widgets", "Utilities"]
         )
     ]
-
 )

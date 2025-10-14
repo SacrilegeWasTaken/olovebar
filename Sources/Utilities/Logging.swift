@@ -6,12 +6,12 @@ let modules: [LogModules] = [
         .activeAppModel, 
         .aerospaceModel, 
         .appleLogoModel, 
-        .BatteryModel, 
-        .DateTimeModel, 
-        .LanguageModel, 
-        .VolumeModel, 
-        .WidgetModel, 
-        .WiFiModel
+        .batteryModel, 
+        .dateTimeModel, 
+        .languageModel, 
+        .volumeModel, 
+        .widgetModel, 
+        .wifiModel
     ])
 ]
 
@@ -44,12 +44,12 @@ public enum WidgetSubmodules: Sendable, Equatable {
     case activeAppModel
     case aerospaceModel
     case appleLogoModel
-    case BatteryModel
-    case DateTimeModel
-    case LanguageModel
-    case VolumeModel
-    case WidgetModel
-    case WiFiModel
+    case batteryModel
+    case dateTimeModel
+    case languageModel
+    case volumeModel
+    case widgetModel
+    case wifiModel
 }
 
 

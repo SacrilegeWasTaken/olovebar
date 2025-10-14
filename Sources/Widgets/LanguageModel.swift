@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import MacroAPI
 
 @MainActor
 public class LanguageModel: ObservableObject {

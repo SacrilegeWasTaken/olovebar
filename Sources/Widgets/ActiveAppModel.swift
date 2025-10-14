@@ -1,5 +1,7 @@
 import SwiftUI
 import Foundation
+import Utilities
+import MacroAPI
 
 @MainActor
 public class ActiveAppModel: ObservableObject {
@@ -13,6 +15,7 @@ public class ActiveAppModel: ObservableObject {
     }
 
     func startTimer() {
+        
         timer?.invalidate()
         update()
         timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(tick(_:)), userInfo: nil, repeats: true)

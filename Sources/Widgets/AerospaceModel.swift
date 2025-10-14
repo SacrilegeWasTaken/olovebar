@@ -1,12 +1,10 @@
 import Foundation
 import SwiftUI
+import MacroAPI
 import Utilities
 
-func debug(_ message: String) {
-    Utilities.debug(message, module: .Widgets([.aerospaceModel]))
-}
-
 @MainActor
+@LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject {
     public init() {}
     @Published var workspaces: [String] = []
@@ -17,6 +15,7 @@ public final class AerospaceModel: ObservableObject {
     var timer: Timer?
 
     func startTimer(interval: TimeInterval) {
+        debug("Timer is started")
         timer?.invalidate()
         updateData()
         // Use selector-based timer to avoid Sendable capture issues
@@ -46,13 +45,13 @@ public final class AerospaceModel: ObservableObject {
         DispatchQueue.main.async {
             self.workspaces = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
             self.focused = focused
-            debug("Updating data. Workspaces \(self.workspaces). Focused \(focused)")
+            self.debug("Updating data. Workspaces \(self.workspaces). Focused \(focused)")
         }
     }
 
     func focus(_ id: String) {
         DispatchQueue.main.async {
-            debug("Workspace setted to \(id)")
+            self.debug("Workspace setted to \(id)")
             _ = self.runCommand("aerospace workspace \(id)")
         }
     }
@@ -68,6 +67,7 @@ public final class AerospaceModel: ObservableObject {
                             self.focus(id)
                         }
                     }) {
+                        let _ = self.debug("Text")
                         Text(id)
                             .font(.system(size: 12, weight: .medium))
                             .frame(width: width, height: height)
@@ -87,7 +87,7 @@ public final class AerospaceModel: ObservableObject {
             .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
-                debug("Timer is set")
+                self.debug("Timer is set")
                 self.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
             }
         }
