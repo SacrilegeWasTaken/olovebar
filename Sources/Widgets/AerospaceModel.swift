@@ -3,6 +3,9 @@ import SwiftUI
 import MacroAPI
 import Utilities
 
+
+
+
 @MainActor
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject {
@@ -15,7 +18,6 @@ public final class AerospaceModel: ObservableObject {
     var timer: Timer?
 
     func startTimer(interval: TimeInterval) {
-        debug("Timer is started")
         timer?.invalidate()
         updateData()
         // Use selector-based timer to avoid Sendable capture issues
@@ -40,18 +42,17 @@ public final class AerospaceModel: ObservableObject {
     }
 
     func updateData() {
+        debug("Updating Data")
         let all = runCommand("aerospace list-workspaces --all")
         let focused = runCommand("aerospace list-workspaces --focused")
         DispatchQueue.main.async {
             self.workspaces = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
             self.focused = focused
-            self.debug("Updating data. Workspaces \(self.workspaces). Focused \(focused)")
         }
     }
 
     func focus(_ id: String) {
         DispatchQueue.main.async {
-            self.debug("Workspace setted to \(id)")
             _ = self.runCommand("aerospace workspace \(id)")
         }
     }
@@ -59,7 +60,6 @@ public final class AerospaceModel: ObservableObject {
     public func aerospaceWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
         GlassEffectContainer {     
             HStack(spacing: 4) { 
-                let _ = debug("Updating UI. focused: \(String(describing: self.focused))")
                 ForEach(self.workspaces, id: \.self) { id in
                     Button(action: {
                         withAnimation {
@@ -67,7 +67,6 @@ public final class AerospaceModel: ObservableObject {
                             self.focus(id)
                         }
                     }) {
-                        let _ = self.debug("Text")
                         Text(id)
                             .font(.system(size: 12, weight: .medium))
                             .frame(width: width, height: height)
@@ -87,7 +86,6 @@ public final class AerospaceModel: ObservableObject {
             .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
-                self.debug("Timer is set")
                 self.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
             }
         }

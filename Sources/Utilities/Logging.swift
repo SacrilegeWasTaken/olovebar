@@ -24,13 +24,22 @@ let level: LogLevel = .trace
 let isLogEnabled: Bool = true
 
 
+
 public enum LogLevel: Int, Sendable, Equatable {
-    case trace = 1
-    case debug = 2
-    case info  = 3
-    case warn  = 4
-    case error = 5
+    case trace = 0, debug, info, warn, error
+
+    @usableFromInline
+    var colorCode: String {
+        switch self {
+        case .trace: return "\u{001B}[37m" // белый
+        case .debug: return "\u{001B}[34m" // синий
+        case .info:  return "\u{001B}[32m" // зелёный
+        case .warn:  return "\u{001B}[33m" // жёлтый
+        case .error: return "\u{001B}[31m" // красный
+        }
+    }
 }
+
 
 
 public enum LogModules: Sendable, Equatable {
@@ -54,37 +63,39 @@ public enum WidgetSubmodules: Sendable, Equatable {
 
 
 @inlinable
-public func trace(_ message: String, module: LogModules) {
-    log(level: .trace, message: message, module: module)
+public func trace(_ message: String, module: LogModules, file: String, function: String, line: Int) {
+    log(level: .trace, message: message, module: module, file: file, function: function, line: line)
 }
 
 @inlinable
-public func debug(_ message: String, module: LogModules) {
-    log(level: .debug, message: message, module: module)
+public func debug(_ message: String, module: LogModules, file: String, function: String, line: Int) {
+    log(level: .debug, message: message, module: module, file: file, function: function, line: line)
 }
 
 @inlinable
-public func info(_ message: String, module: LogModules) {
-    log(level: .info, message: message, module: module)
+public func info(_ message: String, module: LogModules, file: String, function: String, line: Int) {
+    log(level: .info, message: message, module: module, file: file, function: function, line: line)
 }
 
 @inlinable
-public func warn(_ message: String, module: LogModules) {
-    log(level: .warn, message: message, module: module)
+public func warn(_ message: String, module: LogModules, file: String, function: String, line: Int) {
+    log(level: .warn, message: message, module: module, file: file, function: function, line: line)
 }
 
 @inlinable
-public func error(_ message: String, module: LogModules) {
-    log(level: .error, message: message, module: module)
+public func error(_ message: String, module: LogModules, file: String, function: String, line: Int) {
+    log(level: .error, message: message, module: module, file: file, function: function, line: line)
 }
 
 @inlinable
-func log(level logLevel: LogLevel, message: String, module: LogModules) {
+func log(level logLevel: LogLevel, message: String, module: LogModules, file: String, function: String, line: Int) {
     if isLogEnabled {
         guard logLevel.rawValue >= level.rawValue else { return }
 
         if moduleIsEnabled(module) {
-            print("[\(logLevel)] \(message)")
+            // ANSI код для цвета + сброс в конце (\u{001B}[0m)
+            let coloredMessage = "\(logLevel.colorCode)[\(logLevel)]:[\(file):\(line)] - \(message)\u{001B}[0m"
+            print(coloredMessage)
         }
     }
 }
