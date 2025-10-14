@@ -1,5 +1,10 @@
 import Foundation
 import SwiftUI
+import Utilities
+
+func debug(_ message: String) {
+    Utilities.debug(message, module: .Widgets([.aerospaceModel]))
+}
 
 @MainActor
 public final class AerospaceModel: ObservableObject {
@@ -41,18 +46,21 @@ public final class AerospaceModel: ObservableObject {
         DispatchQueue.main.async {
             self.workspaces = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
             self.focused = focused
+            debug("Updating data. Workspaces \(self.workspaces). Focused \(focused)")
         }
     }
 
     func focus(_ id: String) {
         DispatchQueue.main.async {
+            debug("Workspace setted to \(id)")
             _ = self.runCommand("aerospace workspace \(id)")
         }
     }
 
     public func aerospaceWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        GlassEffectContainer {            
+        GlassEffectContainer {     
             HStack(spacing: 4) { 
+                let _ = debug("Updating UI. focused: \(String(describing: self.focused))")
                 ForEach(self.workspaces, id: \.self) { id in
                     Button(action: {
                         withAnimation {
@@ -71,6 +79,7 @@ public final class AerospaceModel: ObservableObject {
                     .background(.clear)
                     .cornerRadius(cornerRadius)
                     .frame(width: width, height: height)
+                    .buttonStyle(.plain)
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     .animation(.easeInOut(duration: 0.15), value: self.focused)
                 }
@@ -78,6 +87,7 @@ public final class AerospaceModel: ObservableObject {
             .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
+                debug("Timer is set")
                 self.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
             }
         }
