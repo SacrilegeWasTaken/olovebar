@@ -1,71 +1,143 @@
 import Foundation
 import SwiftUI
+import MacroAPI
 
 @MainActor
+@LogFunctions(.Widgets([.wifiModel]))
 public class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
+    @Published var idealWidth: CGFloat = 120 // Начальная ширина
+    
+    private var timer: Timer?
+    private let updateInterval: TimeInterval = 1.0 // 1 секунда
 
     public init() {
-        update()
+        startAutoUpdate()
+    }
+    
+    private func startAutoUpdate() {
+        // Останавливаем предыдущий таймер если был
+        timer?.invalidate()
+        
+        // Создаем новый таймер на главной очереди
+        Task { @MainActor in
+            timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                Task { @MainActor in
+                    self.update()
+                }
+            }
+            
+            // Запускаем немедленное обновление при инициализации
+            update()
+        }
     }
 
     private func run(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
-        task.standardError = Pipe()
         task.standardOutput = pipe
         task.standardError = Pipe()
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
-        task.launch()
+        
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return ""
+        }
+        
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func update() {
-        // Try to read Wi‑Fi SSID via airport if present, otherwise fallback to networksetup
-        let airportPath = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
-        var ssidOut = ""
-        if FileManager.default.fileExists(atPath: airportPath) {
-            let cmd = "\(airportPath) -I | awk -F': ' '/ SSID/ {print $2}'"
-            ssidOut = run(cmd)
-        } else {
-            // find Wi‑Fi device (en0/en1...) and query networksetup
-            let devCmd = "networksetup -listallhardwareports | awk '/Wi-?Fi|AirPort/{getline; print $2; exit}'"
-            let dev = run(devCmd)
-            if !dev.isEmpty {
-                let cmd = "networksetup -getairportnetwork \(dev)"
-                ssidOut = run(cmd).replacingOccurrences(of: "Current Wi-Fi Network: ", with: "").replacingOccurrences(of: "You are not associated with an AirPort network.", with: "")
-            }
-        }
-        if ssidOut.isEmpty {
+        // Используем твою команду которая работает правильно
+        let cmd = """
+        en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')"; \
+        ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
+        networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\\t//p'
+        """
+        
+        let result = run(cmd)
+        
+        info("WiFi update - raw: '\(result)'")
+        
+        if result.isEmpty {
             ssid = nil
             stateIcon = "wifi.slash"
+            idealWidth = 100 // Ширина для "No Wi-Fi"
         } else {
-            ssid = ssidOut
+            ssid = result
             stateIcon = "wifi"
+            // Рассчитываем идеальную ширину на основе длины текста
+            idealWidth = calculateIdealWidth(for: result)
         }
     }
+    
+    private func calculateIdealWidth(for text: String) -> CGFloat {
+        // Базовые отступы и иконка
+        let basePadding: CGFloat = 30
+        let iconWidth: CGFloat = 20
+        let spacing: CGFloat = 6
+        
+        // Ориентировочная ширина символа
+        let averageCharWidth: CGFloat = 7.5
+        
+        // Рассчитываем ширину текста
+        let textWidth = CGFloat(text.count) * averageCharWidth
+        
+        // Итоговая ширина с отступами и иконкой
+        let totalWidth = basePadding + iconWidth + spacing + textWidth
+        
+        // Ограничиваем минимальную и максимальную ширину
+        return max(100, min(totalWidth, 300))
+    }
+    
+    private func isError(_ result: String) -> Bool {
+        return result.contains("You are not associated with an AirPort network") ||
+               result.contains("not associated") ||
+               result.contains("802.11") || // Это тип Wi-Fi, а не SSID
+               result.contains("Active : FALSE") ||
+               result.contains("Error:")
+    }
 
+    
+    // Альтернативная версия с фиксированной высотой но адаптивной шириной
     public func wifiWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: {}) {
-            HStack(spacing: 6) {
+        Button(action: {
+            Task { @MainActor in
+                self.update()
+            }
+        }) {
+            HStack(spacing: 8) {
                 Image(systemName: stateIcon)
                     .foregroundColor(.white)
+                    .font(.system(size: height * 0.45, weight: .medium))
+                    .frame(width: height * 0.45)
+                
                 Text(ssid ?? "No Wi‑Fi")
                     .foregroundColor(.white)
-                    .font(.system(size: 12))
+                    .font(.system(size: height * 0.35, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .frame(width: width, height: height)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .frame(height: height)
             .glassEffect()
         }
+        .buttonStyle(PlainButtonStyle())
         .background(.clear)
         .cornerRadius(cornerRadius)
-        .frame(width: width, height: height)
+        .fixedSize(horizontal: true, vertical: false)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onAppear {
-            self.update()
+            Task { @MainActor in
+                self.update()
+            }
         }
     }
 }
