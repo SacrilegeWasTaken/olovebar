@@ -123,7 +123,7 @@ struct BarContentView: View {
                             .frame(width: width, height: height)
                             .foregroundColor(id == self.aerospaceModel.focused ? .purple : .white)
                             .background(.clear)
-                            .glassEffect()
+                            .glassEffect(.regular.interactive(), in: .capsule)
                             .glassEffectTransition(.matchedGeometry)
                             .glassEffectID(id, in: namespace)
                             .glassEffectUnion(id: "all-workspaces", namespace: namespace)
@@ -139,7 +139,7 @@ struct BarContentView: View {
             .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
-                self.aerospaceModel.startTimer(interval: 0.05)
+                self.aerospaceModel.startTimer(interval: 0.1)
             }
         }
     }
