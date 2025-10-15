@@ -3,6 +3,7 @@ import MacroAPI
 
 let clearColor = NSColor.init(Color.init(cgColor: CGColor.init(red: 0, green: 0, blue: 0, alpha: 0)))
 
+
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
     @State private var theme_toggle = false
@@ -14,6 +15,7 @@ struct BarContentView: View {
     @StateObject private var volumeModel = VolumeModel()
     @StateObject private var activeAppModel = ActiveAppModel()
 
+    @Namespace private var namespace
 
     var body: some View {
         let appleButtonWidth: CGFloat = 45
@@ -105,8 +107,9 @@ struct BarContentView: View {
     }
 
     func aerospaceWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        GlassEffectContainer { 
-            HStack(spacing: 4) { 
+        GlassEffectContainer {
+            
+            HStack(spacing: 0) { 
                 let _ = debug("Updating UI. Focused: \(String(describing: self.focused))")
                 ForEach(aerospaceModel.workspaces, id: \.self) { id in
                     Button(action: {
@@ -118,21 +121,25 @@ struct BarContentView: View {
                         Text(id)
                             .font(.system(size: 12, weight: .medium))
                             .frame(width: width, height: height)
-                            .foregroundColor(.white)
+                            .foregroundColor(id == self.aerospaceModel.focused ? .purple : .white)
                             .background(.clear)
-                            .glassEffect(id == self.aerospaceModel.focused ? .clear.tint(.orange) : .clear)
+                            .glassEffect()
+                            .glassEffectTransition(.matchedGeometry)
+                            .glassEffectID(id, in: namespace)
+                            .glassEffectUnion(id: "all-workspaces", namespace: namespace)
+                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                     }
-                    .background(.clear)
-                    .cornerRadius(cornerRadius)
-                    .frame(width: width, height: height)
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .background(.clear)
+                    .frame(width: width, height: height)
                     .animation(.easeInOut(duration: 0.15), value: self.aerospaceModel.focused)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .padding(.horizontal, 26)
             .frame(height: height)
             .onAppear {
-                self.aerospaceModel.startTimer(interval: 0.1) // запускаем обновление каждые 0.1 сек
+                self.aerospaceModel.startTimer(interval: 0.05)
             }
         }
     }
