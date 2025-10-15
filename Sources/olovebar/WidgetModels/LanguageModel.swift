@@ -17,32 +17,37 @@ public class LanguageModel: ObservableObject {
         task.standardOutput = pipe
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
-        task.launch()
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            return ""
+        }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func update() {
-        // Try to get current input source using AppleScript
         let script = "osascript -e 'tell application \"System Events\" to get name of first input source whose selected is true'"
-        let out = run(script)
+        let out = self.run(script)
         self.current = out.isEmpty ? "EN" : out
     }
 
     func toggle() {
-        // Switch to the next input source using AppleScript
-        let script = "osascript -e 'tell application \"System Events\" to select (first input source whose selected is false)'"
-        // run synchronously (quick) and update
-        let task = Process()
-        let pipe = Pipe()
-        task.standardError = Pipe()
-        task.standardOutput = pipe
-        task.arguments = ["-c", script]
-        task.launchPath = "/bin/zsh"
-        task.launch()
-        _ = pipe.fileHandleForReading.readDataToEndOfFile()
-        Thread.sleep(forTimeInterval: 0.2)
-        update()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let script = "osascript -e 'tell application \"System Events\" to select (first input source whose selected is false)'"
+            let task = Process()
+            let pipe = Pipe()
+            task.standardError = Pipe()
+            task.standardOutput = pipe
+            task.arguments = ["-c", script]
+            task.launchPath = "/bin/zsh"
+            do { try task.run(); task.waitUntilExit() } catch {}
+            Thread.sleep(forTimeInterval: 0.2)
+            DispatchQueue.main.async { [weak self] in
+                self?.update()
+            }
+        }
     }
 
     public func languageWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {

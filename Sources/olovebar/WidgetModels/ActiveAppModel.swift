@@ -8,21 +8,26 @@ public class ActiveAppModel: ObservableObject {
     @Published var bundleID: String = ""
     @Published var appName: String = ""
 
-    var timer: Timer?
+    nonisolated(unsafe) private var timer: Timer?
 
     public init() {
         startTimer()
     }
 
-    func startTimer() {
-        
+    deinit {
         timer?.invalidate()
-        update()
-        timer = Timer.scheduledTimer(timeInterval: 0.1, target: self, selector: #selector(tick(_:)), userInfo: nil, repeats: true)
     }
 
-    @objc private func tick(_ t: Timer) {
+    func startTimer() {
+        timer?.invalidate()
         update()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.update()
+            }
+        }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
     func update() {
@@ -37,25 +42,6 @@ public class ActiveAppModel: ObservableObject {
         }
     }
 
-    public func activeApp(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: {
-            // lol
-        }) {
-            HStack(spacing: 0) {
-                Text(appName)
-                    .foregroundColor(.white)
-                    .font(.system(size: 12))
-                    .lineLimit(1)
-                    .fixedSize() // текст задаёт ширину HStack
-            }
-            .frame(minWidth: width) // минимальная ширина
-            .frame(height: height)
-            .background(.clear)
-            .padding(.horizontal, 16)
-            .glassEffect() // применяем к HStack
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
+    // UI moved to ActiveAppView in SwiftUI layer
 
 }

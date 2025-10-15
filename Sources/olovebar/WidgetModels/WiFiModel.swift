@@ -2,36 +2,33 @@ import Foundation
 import SwiftUI
 import MacroAPI
 
-@MainActor
 @LogFunctions(.Widgets([.wifiModel]))
+@MainActor
 public class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
     @Published var idealWidth: CGFloat = 120 // Начальная ширина
     
-    private var timer: Timer?
+    nonisolated(unsafe) private var timer: Timer?
     private let updateInterval: TimeInterval = 1.0 // 1 секунда
 
     public init() {
         startAutoUpdate()
     }
+    deinit {
+        timer?.invalidate()
+    }
     
     private func startAutoUpdate() {
-        // Останавливаем предыдущий таймер если был
         timer?.invalidate()
-        
-        // Создаем новый таймер на главной очереди
-        Task { @MainActor in
-            timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
-                guard let self = self else { return }
-                Task { @MainActor in
-                    self.update()
-                }
+        update()
+        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.update()
             }
-            
-            // Запускаем немедленное обновление при инициализации
-            update()
         }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
     private func run(_ cmd: String) -> String {
@@ -41,39 +38,32 @@ public class WiFiModel: ObservableObject {
         task.standardError = Pipe()
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
-        
         do {
             try task.run()
             task.waitUntilExit()
         } catch {
             return ""
         }
-        
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func update() {
-        // Используем твою команду которая работает правильно
         let cmd = """
         en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')"; \
         ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
         networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\\t//p'
         """
-        
-        let result = run(cmd)
-        
+        let result = self.run(cmd)
         info("WiFi update - raw: '\(result)'")
-        
         if result.isEmpty {
-            ssid = nil
-            stateIcon = "wifi.slash"
-            idealWidth = 100 // Ширина для "No Wi-Fi"
+            self.ssid = nil
+            self.stateIcon = "wifi.slash"
+            self.idealWidth = 100
         } else {
-            ssid = result
-            stateIcon = "wifi"
-            // Рассчитываем идеальную ширину на основе длины текста
-            idealWidth = calculateIdealWidth(for: result)
+            self.ssid = result
+            self.stateIcon = "wifi"
+            self.idealWidth = self.calculateIdealWidth(for: result)
         }
     }
     

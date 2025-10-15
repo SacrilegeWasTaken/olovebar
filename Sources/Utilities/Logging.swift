@@ -1,3 +1,4 @@
+import Foundation
 @usableFromInline
 let modules: [LogModules] = [
     // .OLoveBar, 
@@ -11,7 +12,7 @@ let modules: [LogModules] = [
         .languageModel, 
         .volumeModel, 
         .widgetModel, 
-        .wifiModel
+        // .wifiModel
     ])
 ]
 
@@ -94,7 +95,8 @@ func log(level logLevel: LogLevel, message: String, module: LogModules, file: St
 
         if moduleIsEnabled(module) {
             // ANSI код для цвета + сброс в конце (\u{001B}[0m)
-            let coloredMessage = "\(logLevel.colorCode)[\(logLevel)]:[\(file):\(line)] - \(message)\u{001B}[0m"
+            let fileName = URL(fileURLWithPath: file).lastPathComponent
+            let coloredMessage = "\(logLevel.colorCode)[\(logLevel)]:[\(fileName):\(line)] - \(message)\u{001B}[0m"
             print(coloredMessage)
         }
     }

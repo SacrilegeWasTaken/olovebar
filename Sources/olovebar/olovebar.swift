@@ -1,19 +1,4 @@
-
-// ▓▓▓▓▓▓▀▀░░░░░░▀▀▓▓▓▓▓▓
-// ▓▓▓▀░░░░░▄██▄░░░░░▀▓▓▓
-// ▓▓░░░░░▄▄██▀░░░░░░░░▓▓
-// ▓░░░░░▄██▀░░░▄█▄░░░░░▓
-// ▌░░░░░▀██▄▄▄█████▄░░░▐
-// ░░▄▄▄░░░▀████▀░▀▀██▄░░
-// ░░▀██▄░▄▄████▄░░░▀▀▀░░
-// ▌░░░▀█████▀▀▀██▄░░░░░▐
-// ▓░░░░░▀█▀░░░▄██▀░░░░░▓
-// ▓▓░░░░░░░░▄██▀░░░░░░▓▓
-// ▓▓▓▄░░░░░▀█▀▀░░░░░▄▓▓▓
-// ▓▓▓▓▓▓▄▄░░░░░░▄▄▓▓▓▓▓▓
-
 import Cocoa
-import MetalKit
 import SwiftUI
 
 final class BarWindow: NSWindow {
@@ -25,7 +10,6 @@ final class BarWindow: NSWindow {
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: BarWindow!
-    var metalView: MTKView!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindow()
@@ -36,8 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupWindow() {
         let barHeight: CGFloat = 35
         let barHorizontalCut: CGFloat = 10
-        let barVerticalCut: CGFloat = 4
-        let screenFrame = NSScreen.main!.frame
+        let barVerticalCut: CGFloat = 2
+        guard let mainScreen = NSScreen.main else { return }
+        let screenFrame = mainScreen.frame
         let frame = NSRect(
             x: barHorizontalCut,
             y: screenFrame.height - barHeight - barVerticalCut,

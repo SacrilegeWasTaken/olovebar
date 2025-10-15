@@ -16,15 +16,14 @@ public class VolumeModel: ObservableObject {
         task.standardOutput = pipe
         task.arguments = ["-c", cmd]
         task.launchPath = "/bin/zsh"
-        task.launch()
+        do { try task.run(); task.waitUntilExit() } catch { return "" }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func update() {
-        // Get output volume using AppleScript
-        let out = run("osascript -e 'output volume of (get volume settings)'")
-        if let v = Double(out) { level = v }
+        let out = self.run("osascript -e 'output volume of (get volume settings)'")
+        if let v = Double(out) { self.level = v }
     }
 
     @MainActor
