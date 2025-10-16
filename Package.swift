@@ -14,7 +14,8 @@ let package = Package(
         .executable(name: "olovebar", targets: ["OLoveBar"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-syntax.git", from: "602.0.0")
+        .package(url: "https://github.com/apple/swift-syntax.git", from: "602.0.0"),
+        .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.5.0")
     ],
     targets: [
         // MARK: - Macro Plugin (реализация)
@@ -47,7 +48,7 @@ let package = Package(
         // MARK: - Исполняемый таргет
         .executableTarget(
             name: "OLoveBar",
-            dependencies: ["Utilities", "MacroAPI"]
+            dependencies: ["Utilities", "MacroAPI", "TOMLKit"]
         )
     ]
 )

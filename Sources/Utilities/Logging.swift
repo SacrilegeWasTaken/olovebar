@@ -1,7 +1,9 @@
 import Foundation
+
 @usableFromInline
 let modules: [LogModules] = [
     // .OLoveBar, 
+    .Config,
     .Utilities, 
     .Widgets([
         .activeAppModel, 
@@ -44,6 +46,7 @@ public enum LogLevel: Int, Sendable, Equatable {
 
 
 public enum LogModules: Sendable, Equatable {
+    case Config
     case OLoveBar
     case Utilities
     case Widgets([WidgetSubmodules])
