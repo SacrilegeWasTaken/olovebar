@@ -4,6 +4,7 @@ import Utilities
 import MacroAPI
 
 @MainActor
+@LogFunctions(.Widgets([.activeAppModel]))
 public class ActiveAppModel: ObservableObject {
     @Published var bundleID: String = ""
     @Published var appName: String = ""

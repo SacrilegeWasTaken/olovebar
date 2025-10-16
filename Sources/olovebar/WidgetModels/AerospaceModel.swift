@@ -1,9 +1,6 @@
 import Foundation
 import SwiftUI
 import MacroAPI
-import Utilities
-
-
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject, @unchecked Sendable {

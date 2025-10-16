@@ -1,7 +1,9 @@
 import SwiftUI
 import Foundation
+import MacroAPI
 
 @MainActor
+@LogFunctions(.Widgets([.volumeModel]))
 public class VolumeModel: ObservableObject {
     @Published var level: Double = 50
     @Published var isPopoverPresented: Bool = false

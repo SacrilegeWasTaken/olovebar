@@ -3,6 +3,7 @@ import SwiftUI
 import MacroAPI
 
 @MainActor
+@LogFunctions(.Widgets([.languageModel]))
 public class LanguageModel: ObservableObject {
     @Published var current: String = "EN"
 

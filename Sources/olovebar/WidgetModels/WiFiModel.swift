@@ -2,8 +2,8 @@ import Foundation
 import SwiftUI
 import MacroAPI
 
-@LogFunctions(.Widgets([.wifiModel]))
 @MainActor
+@LogFunctions(.Widgets([.wifiModel]))
 public class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"

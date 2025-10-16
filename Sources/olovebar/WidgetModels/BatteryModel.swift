@@ -3,6 +3,7 @@ import Foundation
 import MacroAPI
 
 @MainActor
+@LogFunctions(.Widgets([.batteryModel]))
 public class BatteryModel: ObservableObject {
     @Published var percentage: Int = 100
     @Published var isCharging: Bool = false
