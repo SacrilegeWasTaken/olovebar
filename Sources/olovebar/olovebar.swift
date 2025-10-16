@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.isOpaque = false
-        window.backgroundColor = NSColor(cgColor: CGColor(red: 0, green: 0, blue: 0, alpha: 0.0))
+        window.backgroundColor = .clear
         window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
         window.ignoresMouseEvents = false
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]

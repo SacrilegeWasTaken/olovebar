@@ -1,12 +1,10 @@
 import SwiftUI
 import MacroAPI
 
-let clearColor = NSColor.clear
-
 
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
-    @State private var theme_toggle = false
+    @State private var theme_toggle = true
 
     @StateObject private var aerospaceModel = AerospaceModel()
     @StateObject private var wifiModel = WiFiModel()
@@ -16,7 +14,9 @@ struct BarContentView: View {
     @StateObject private var activeAppModel = ActiveAppModel()
 
     @Namespace private var namespace
-
+    @State var variant = 11
+    @State var cornerRadius: Double = 30
+      
     var body: some View {
         let appleButtonWidth: CGFloat = 45
         let timeButtonWidth: CGFloat = 190
@@ -26,9 +26,17 @@ struct BarContentView: View {
         let batteryWidth: CGFloat = 70
         let languageWidth: CGFloat = 48
         let volumeWidth: CGFloat = 48
+        ZStack {
+            if self.theme_toggle {
+                LiquidGlassBackground(
+                    variant: GlassVariant(rawValue: variant) ?? .v11,
+                    cornerRadius: cornerRadius
+                ) {
+                    Color.clear
+                }
+            }
 
-        GlassEffectContainer() {
-            let view = HStack(spacing: 0) {
+            HStack(spacing: 0) {
                 // Left: Apple logo
                 appleButton(width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
 
@@ -47,15 +55,10 @@ struct BarContentView: View {
                     VolumeView(model: volumeModel, width: volumeWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     timeButton(width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
                 }
-
-                // Right: live-updating clock
             }
-            if self.theme_toggle {
-                view.glassEffect()
-            } else {
-                view
-            }
+            
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
 
@@ -64,7 +67,7 @@ struct BarContentView: View {
 
     // MARK: - Apple Logo Button
     func appleButton(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: {
+       Button(action: {
             self.theme_toggle.toggle()
         }) {
             Image(systemName: "apple.logo")
