@@ -16,6 +16,7 @@ struct VolumeWidgetView: View {
                 .glassEffect()
         }
         .background(.clear)
+        .buttonStyle(.plain)
         .cornerRadius(cornerRadius)
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))

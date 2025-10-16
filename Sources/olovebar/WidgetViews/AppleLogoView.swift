@@ -21,6 +21,7 @@ struct AppleLogoWidgetView: View {
                 .cornerRadius(cornerRadius)
                 .glassEffect()
         }
+        .buttonStyle(.plain)
         .background(.clear)
         .frame(width: width, height: height)
         .cornerRadius(cornerRadius)

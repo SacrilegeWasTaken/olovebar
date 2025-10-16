@@ -27,6 +27,7 @@ struct DateTimeWidgetView: View {
                 .frame(width: width, height: height)
                 .glassEffect()
             }
+            .buttonStyle(.plain)
             .frame(width: width, height: height)
             .cornerRadius(cornerRadius)
         }

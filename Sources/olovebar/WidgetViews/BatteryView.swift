@@ -22,6 +22,7 @@ struct BatteryWidgetView: View {
             .frame(width: width, height: height)
             .glassEffect()
         }
+        .buttonStyle(.plain)
         .background(.clear)
         .cornerRadius(cornerRadius)
         .frame(width: width, height: height)

@@ -15,7 +15,7 @@ struct LanguageWidgetView: View {
                 .frame(width: width, height: height)
                 .glassEffect()
         }
-        .background(.clear)
+        .buttonStyle(.plain)
         .cornerRadius(cornerRadius)
         .frame(width: width, height: height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
