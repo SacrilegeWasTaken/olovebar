@@ -4,14 +4,14 @@ import MacroAPI
 @LogFunctions(.Widgets([.appleLogoModel]))
 struct AppleLogoWidgetView: View {
     @ObservedObject var model: AppleLogoModel
-    @Binding var theme_toggle: Bool 
+    @Binding var theme_toggle: Theme 
     let width: CGFloat
     let height: CGFloat
     let cornerRadius: CGFloat
 
     var body: some View {
         Button(action: {
-            theme_toggle.toggle()
+            theme_toggle = theme_toggle.next()
         }) {
             Image(systemName: "apple.logo")
                 .frame(width: width, height: height)

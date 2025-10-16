@@ -2,9 +2,10 @@ import SwiftUI
 import MacroAPI
 
 
+
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
-    @State private var theme_toggle = true
+    @State private var theme_toggle: Theme = .trueBgRegularFront
 
     @StateObject private var appleLogoModel = AppleLogoModel()
     @StateObject private var aerospaceModel = AerospaceModel()
@@ -29,7 +30,7 @@ struct BarContentView: View {
         let volumeWidth: CGFloat = 48
 
         ZStack {
-            if self.theme_toggle {
+            if self.theme_toggle == .trueBgRegularFront {
                 LiquidGlassBackground(
                     variant: GlassVariant(rawValue: glass_variant) ?? .v11,
                     cornerRadius: cornerRadius
@@ -38,7 +39,7 @@ struct BarContentView: View {
                 }
             }
 
-            HStack(spacing: 0) {
+            let view = HStack(spacing: 0) {
                 HStack(spacing: 16) {
                     AppleLogoWidgetView(model: appleLogoModel, theme_toggle: $theme_toggle, width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     AerospaceWidgetView(model: aerospaceModel, width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
@@ -55,7 +56,13 @@ struct BarContentView: View {
                     DateTimeWidgetView(model: dateTimeModel, width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
                 }
             }
-            
+
+            switch self.theme_toggle {
+                case .regularBgRegularFront:
+                    view.glassEffect()
+                default:
+                    view
+            }
         }
     }
 }
