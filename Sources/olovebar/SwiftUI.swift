@@ -6,7 +6,7 @@ import MacroAPI
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
     @State private var theme_toggle: Theme = .trueBgRegularFront
-    
+
     @StateObject private var appleLogoModel = AppleLogoModel()
     @StateObject private var aerospaceModel = AerospaceModel()
     @StateObject private var wifiModel = WiFiModel()
@@ -16,7 +16,7 @@ struct BarContentView: View {
     @StateObject private var activeAppModel = ActiveAppModel()
     @StateObject private var dateTimeModel = DateTimeModel()
 
-    var glass_variant = 11
+    let glass_variant = 11
       
     var body: some View {
 

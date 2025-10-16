@@ -5,8 +5,24 @@ import MacroAPI
 @LogFunctions(.Config)
 public final class Config {
 
-    public private(set) var path: String
-    public private(set) var data: TOMLTable?
+
+    private var path: String
+    private var data: TOMLTable?
+    // Configurable
+    public private(set) var barHeight: CGFloat = 35
+    public private(set) var barHorizontalCut: CGFloat = 10
+    public private(set) var barVerticalCut: CGFloat = 2
+    // Unconfigurable
+    public let appleButtonWidth: CGFloat = 45
+    public let timeButtonWidth: CGFloat = 190
+    public let widgetHeight: CGFloat = 33
+    public let cornerRadius: CGFloat = 16
+    public let wifiWidth: CGFloat = 90
+    public let batteryWidth: CGFloat = 70
+    public let languageWidth: CGFloat = 35
+    public let volumeWidth: CGFloat = 48
+    public let glassVariant: Int = 48
+
 
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -28,11 +44,13 @@ public final class Config {
             info("✅ Config loaded from \(path)")
         } catch {
             warn("❌ Failed to parse TOML: \(error)")
+            return
         }
+
+
     }
 
-    /// Достаём значение по ключу
-    public func value<T>(_ key: String) -> T? {
+    private func value<T>(_ key: String) -> T? {
         data?[key] as? T
     }
 }
