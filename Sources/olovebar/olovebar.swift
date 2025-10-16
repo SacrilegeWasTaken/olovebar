@@ -18,9 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupWindow() {
-        let barHeight: CGFloat = 35
-        let barHorizontalCut: CGFloat = 10
-        let barVerticalCut: CGFloat = 2
+        let config = Config()
+
+        let barHeight: CGFloat = config.barHeight
+        let barHorizontalCut: CGFloat = config.barHorizontalCut
+        let barVerticalCut: CGFloat = config.barVerticalCut
         guard let mainScreen = NSScreen.main else { return }
         let screenFrame = mainScreen.frame
         let frame = NSRect(
@@ -49,11 +51,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         container.layer?.backgroundColor = .clear
         // ensure container's layer is not opaque so alpha can show through
         container.layer?.isOpaque = false
-        container.layer?.cornerRadius = 16
+        container.layer?.cornerRadius = config.windowCornerRadius
         container.layer?.masksToBounds = true
 
         // Host a SwiftUI view inside AppKit
-        let hostingView = NSHostingView(rootView: BarContentView()
+        let hostingView = NSHostingView(rootView: BarContentView(config: config)
                                             .frame(maxWidth: .infinity, maxHeight: .infinity))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(hostingView)

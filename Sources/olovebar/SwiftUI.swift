@@ -5,6 +5,8 @@ import MacroAPI
 
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
+    let config: Config
+
     @State private var theme_toggle: Theme = .trueBgRegularFront
 
     @StateObject private var appleLogoModel = AppleLogoModel()
