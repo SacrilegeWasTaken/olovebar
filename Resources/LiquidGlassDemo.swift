@@ -170,14 +170,14 @@ final class FloatingPanel<Content: View>: NSPanel {
     override var canBecomeMain: Bool { true }
 }
 
-// @main
-// struct LiquidGlassDemoApp: App {
-//     var body: some Scene {
-//         WindowGroup(id: "main") {
-//             LiquidGlassDemo()
-//                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-//                 .background(Color.clear)
-//         }
-//         .defaultSize(width: 700, height: 300)
-//     }
-// }
+@main
+struct LiquidGlassDemoApp: App {
+    var body: some Scene {
+        WindowGroup(id: "main") {
+            LiquidGlassDemo()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.clear)
+        }
+        .defaultSize(width: 700, height: 300)
+    }
+}
