@@ -10,7 +10,7 @@ struct AppleLogoWidgetView: View {
     @ObservedObject var model: AppleLogoModel
     @ObservedObject var config: Config
     @ObservedObject var controller: ConfigWindowController
-    @Binding var theme_toggle: Theme
+    @Binding var theme_toggle: Bool
 
     var body: some View {
         LiquidGlassBackground(
@@ -18,7 +18,7 @@ struct AppleLogoWidgetView: View {
             cornerRadius: config.widgetCornerRadius
         ) {
             Button(action: {
-                theme_toggle = theme_toggle.next()
+                theme_toggle.toggle()
             }) {
                 Image(systemName: "apple.logo")
                     .frame(width: config.appleLogoWidth, height: config.widgetHeight)

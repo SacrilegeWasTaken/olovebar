@@ -8,7 +8,7 @@ struct BarContentView: View {
     @StateObject var config = Config()
 
 
-    @State private var theme_toggle: Theme = .trueBgRegularFront
+    @State private var theme_toggle: Bool = true
 
 
     @StateObject private var appleLogoModel = AppleLogoModel()
@@ -23,7 +23,7 @@ struct BarContentView: View {
 
     var body: some View {
         ZStack {
-            if self.theme_toggle == .trueBgRegularFront {
+            if self.theme_toggle {
                 LiquidGlassBackground(
                     variant: GlassVariant(rawValue: config.windowGlassVariant)!,
                     cornerRadius: config.widgetCornerRadius
@@ -32,7 +32,7 @@ struct BarContentView: View {
                 }
             }
 
-            let view = HStack(spacing: 0) {
+            HStack(spacing: 0) {
                 HStack(spacing: config.rightSpacing) {
                     AppleLogoWidgetView(model: appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
                     AerospaceWidgetView(model: aerospaceModel, config: config)
@@ -48,13 +48,6 @@ struct BarContentView: View {
                     VolumeWidgetView(model: volumeModel, config: config)
                     DateTimeWidgetView(model: dateTimeModel, config: config)
                 }
-            }
-
-            switch self.theme_toggle {
-                case .regularBgRegularFront:
-                    view.glassEffect()
-                default:
-                    view
             }
         }
     }
