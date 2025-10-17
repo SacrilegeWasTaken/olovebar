@@ -3,27 +3,30 @@ import TOMLKit
 import MacroAPI
 
 @LogFunctions(.Config)
-public final class Config {
-
-
+public final class Config: ObservableObject {
     private var path: String
     private var data: TOMLTable?
     // Window Configuration
-    public private(set) var barHeight: CGFloat = 35
-    public private(set) var barHorizontalCut: CGFloat = 10
-    public private(set) var barVerticalCut: CGFloat = 2
-    public private(set) var glassVariant: Int = 11
-    public private(set) var windowCornerRadius: CGFloat = 16
+    // MARK: - Window Configuration
+    @Published public var barHeight: CGFloat = 35
+    @Published public var barHorizontalCut: CGFloat = 10
+    @Published public var barVerticalCut: CGFloat = 2
+    @Published public var glassVariant: Int = 11
+    @Published public var windowCornerRadius: CGFloat = 16
 
-    // Widget configuration
-    public private(set) var appleButtonWidth: CGFloat = 45
-    public private(set) var timeButtonWidth: CGFloat = 190
-    public private(set) var widgetHeight: CGFloat = 33
-    public private(set) var widgetCornerRadius: CGFloat = 16
-    public private(set) var wifiWidth: CGFloat = 90
-    public private(set) var batteryWidth: CGFloat = 70
-    public private(set) var languageWidth: CGFloat = 35
-    public private(set) var volumeWidth: CGFloat = 48
+    // MARK: - Widget Configuration
+    @Published public var appleLogoWidth: CGFloat = 45
+    @Published public var aerospaceWidth: CGFloat = 33
+    @Published public var activeAppWidth: CGFloat = 70
+    @Published public var dateTimeWidth: CGFloat = 190
+    @Published public var widgetHeight: CGFloat = 33
+    @Published public var widgetCornerRadius: CGFloat = 16
+    @Published public var wifiWidth: CGFloat = 90
+    @Published public var batteryWidth: CGFloat = 70
+    @Published public var languageWidth: CGFloat = 48
+    @Published public var volumeWidth: CGFloat = 48
+    @Published public var rightSpacing: CGFloat = 16
+    @Published public var leftSpacing: CGFloat = 8
 
 
     init() {
@@ -94,14 +97,14 @@ public final class Config {
 
 
     private func load_widget() {
-        if let appleButtonWidth: Double = value("widget", "apple_button_width") {
-            self.appleButtonWidth = CGFloat(appleButtonWidth)
-            info("Loaded widget.apple_button_width = \(self.appleButtonWidth)")
+        if let appleLogoWidth: Double = value("widget", "apple_button_width") {
+            self.appleLogoWidth = CGFloat(appleLogoWidth)
+            info("Loaded widget.apple_button_width = \(self.appleLogoWidth)")
         }
 
-        if let timeButtonWidth: Double = value("widget", "time_button_width") {
-            self.timeButtonWidth = CGFloat(timeButtonWidth)
-            info("Loaded widget.time_button_width = \(self.timeButtonWidth)")
+        if let dateTimeWidth: Double = value("widget", "time_button_width") {
+            self.dateTimeWidth = CGFloat(dateTimeWidth)
+            info("Loaded widget.time_button_width = \(self.dateTimeWidth)")
         }
 
         if let widgetHeight: Double = value("widget", "widget_height") {

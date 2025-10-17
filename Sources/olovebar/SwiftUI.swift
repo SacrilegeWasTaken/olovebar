@@ -5,9 +5,11 @@ import MacroAPI
 
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
-    let config: Config
+    @StateObject var config = Config()
+
 
     @State private var theme_toggle: Theme = .trueBgRegularFront
+
 
     @StateObject private var appleLogoModel = AppleLogoModel()
     @StateObject private var aerospaceModel = AerospaceModel()
@@ -17,24 +19,28 @@ struct BarContentView: View {
     @StateObject private var volumeModel = VolumeModel()
     @StateObject private var activeAppModel = ActiveAppModel()
     @StateObject private var dateTimeModel = DateTimeModel()
-
-    let glass_variant = 11
       
+
     var body: some View {
 
-        let appleButtonWidth: CGFloat = 45
-        let timeButtonWidth: CGFloat = 190
-        let widgetHeight: CGFloat = 33
-        let cornerRadius: CGFloat = 16
-        let wifiWidth: CGFloat = 90
-        let batteryWidth: CGFloat = 70
-        let languageWidth: CGFloat = 48
-        let volumeWidth: CGFloat = 48
+        let appleLogoWidth = config.appleLogoWidth
+        let aerospaceWidth = config.aerospaceWidth
+        let activeAppWidth = config.activeAppWidth
+        let dateTimeWidth = config.dateTimeWidth
+        let widgetHeight = config.widgetHeight
+        let cornerRadius = config.widgetCornerRadius
+        let wifiWidth = config.wifiWidth
+        let batteryWidth = config.batteryWidth
+        let languageWidth = config.languageWidth
+        let volumeWidth = config.volumeWidth
+        let glassVariant = config.glassVariant
+        let rightSpacing = config.rightSpacing
+        let leftSpacing = config.leftSpacing
 
         ZStack {
             if self.theme_toggle == .trueBgRegularFront {
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: glass_variant) ?? .v11,
+                    variant: GlassVariant(rawValue: glassVariant) ?? .v11,
                     cornerRadius: cornerRadius
                 ) {
                     Color.clear
@@ -42,20 +48,20 @@ struct BarContentView: View {
             }
 
             let view = HStack(spacing: 0) {
-                HStack(spacing: 16) {
-                    AppleLogoWidgetView(model: appleLogoModel, theme_toggle: $theme_toggle, width: appleButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    AerospaceWidgetView(model: aerospaceModel, width: widgetHeight, height: widgetHeight, cornerRadius: cornerRadius)
-                    ActiveAppWidgetView(model: activeAppModel, width: 70, height: widgetHeight, cornerRadius: cornerRadius)
+                HStack(spacing: rightSpacing) {
+                    AppleLogoWidgetView(model: appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle, width: appleLogoWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    AerospaceWidgetView(model: aerospaceModel, width: aerospaceWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    ActiveAppWidgetView(model: activeAppModel, width: activeAppWidth, height: widgetHeight, cornerRadius: cornerRadius)
                 }
 
                 Spacer()
 
-                HStack(spacing: 8) {
+                HStack(spacing: leftSpacing) {
                     WiFiWidgetView(model: wifiModel, width: wifiWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     BatteryWidgetView(model: batteryModel, width: batteryWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     LanguageWidgetView(model: languageModel, width: languageWidth, height: widgetHeight, cornerRadius: cornerRadius)
                     VolumeWidgetView(model: volumeModel, width: volumeWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    DateTimeWidgetView(model: dateTimeModel, width: timeButtonWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                    DateTimeWidgetView(model: dateTimeModel, width: dateTimeWidth, height: widgetHeight, cornerRadius: cornerRadius)
                 }
             }
 
