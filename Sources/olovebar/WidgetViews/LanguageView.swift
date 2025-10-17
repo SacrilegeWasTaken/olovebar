@@ -6,17 +6,21 @@ struct LanguageWidgetView: View {
     @ObservedObject var model: LanguageModel
     @ObservedObject var config: Config
     var body: some View {
-        Button(action: { model.toggle() }) {
-            Text(model.current)
-                .foregroundColor(.white)
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: config.languageWidth, height: config.widgetHeight)
-                .glassEffect()
+        LiquidGlassBackground(
+            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+            cornerRadius: config.widgetCornerRadius
+        ) {
+            Button(action: { model.toggle() }) {
+                Text(model.current)
+                    .foregroundColor(.white)
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: config.languageWidth, height: config.widgetHeight)
+            }
+            .buttonStyle(.plain)
+            .cornerRadius(config.widgetCornerRadius)
+            .frame(width: config.languageWidth, height: config.widgetHeight)
+            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
+            .onAppear { model.update() }
         }
-        .buttonStyle(.plain)
-        .cornerRadius(config.widgetCornerRadius)
-        .frame(width: config.languageWidth, height: config.widgetHeight)
-        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-        .onAppear { model.update() }
     }
 }

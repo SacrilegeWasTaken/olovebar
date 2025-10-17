@@ -13,25 +13,29 @@ struct AppleLogoWidgetView: View {
     @Binding var theme_toggle: Theme
 
     var body: some View {
-        Button(action: {
-            theme_toggle = theme_toggle.next()
-        }) {
-            Image(systemName: "apple.logo")
-                .frame(width: config.appleLogoWidth, height: config.widgetHeight)
-                .foregroundColor(.white)
-                .background(.clear)
-                .font(.system(size: 15, weight: .semibold))
-                .cornerRadius(config.widgetCornerRadius)
-                .glassEffect()
-        }
-        .buttonStyle(.plain)
-        .background(.clear)
-        .frame(width: config.appleLogoWidth, height: config.widgetHeight)
-        .cornerRadius(config.widgetCornerRadius)
-        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-        .contextMenu {
-            Button("Settings") {
-                controller.show()
+        LiquidGlassBackground(
+            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+            cornerRadius: config.widgetCornerRadius
+        ) {
+            Button(action: {
+                theme_toggle = theme_toggle.next()
+            }) {
+                Image(systemName: "apple.logo")
+                    .frame(width: config.appleLogoWidth, height: config.widgetHeight)
+                    .foregroundColor(.white)
+                    .background(.clear)
+                    .font(.system(size: 15, weight: .semibold))
+                    .cornerRadius(config.widgetCornerRadius)
+            }
+            .buttonStyle(.plain)
+            .background(.clear)
+            .frame(width: config.appleLogoWidth, height: config.widgetHeight)
+            .cornerRadius(config.widgetCornerRadius)
+            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
+            .contextMenu {
+                Button("Settings") {
+                    controller.show()
+                }
             }
         }
     }
@@ -45,7 +49,7 @@ struct ConfigEditorView: View {
 
     var body: some View {
         LiquidGlassBackground(
-            variant: .v16,
+            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
             cornerRadius: config.widgetCornerRadius
         ) {
             ZStack {
@@ -70,11 +74,12 @@ struct ConfigEditorView: View {
                             GlassStepper(title: "Горизонтальный отступ", value: $config.barHorizontalCut, range: 0...50)
                             GlassStepper(title: "Вертикальный отступ", value: $config.barVerticalCut, range: 0...50)
                             GlassStepper(title: "Радиус углов окна", value: $config.windowCornerRadius, range: 0...40)
-                            GlassStepper(title: "Вариант стекла", value: $config.glassVariant, range: 0...19)
+                            GlassStepper(title: "Вариант стекла", value: $config.windowGlassVariant, range: 0...19)
                         }
 
                         VStack(spacing: 4) {
                             // Widget Configuration
+                            GlassStepper(title: "Вариант стекла", value: $config.widgetGlassVariant, range: 0...19)
                             GlassStepper(title: "Высота виджета", value: $config.widgetHeight, range: 20...60)
                             GlassStepper(title: "Радиус виджета", value: $config.widgetCornerRadius, range: 0...40)
                             GlassStepper(title: "Ширина логотипа Apple", value: $config.appleLogoWidth, range: 20...100)
@@ -94,7 +99,7 @@ struct ConfigEditorView: View {
                 .frame(width: 600, height: 800)
                 .background(.clear)        
             }
-            .id(config.glassVariant)
+            .id(config.widgetGlassVariant + config.windowGlassVariant)
         }   
     }
 }

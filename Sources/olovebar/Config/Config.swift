@@ -11,7 +11,7 @@ public final class Config: ObservableObject {
     @Published public var barHeight: CGFloat = 35
     @Published public var barHorizontalCut: CGFloat = 10
     @Published public var barVerticalCut: CGFloat = 2
-    @Published public var glassVariant: Int = 11
+    @Published public var windowGlassVariant: Int = 12
     @Published public var windowCornerRadius: CGFloat = 16
 
     // MARK: - Widget Configuration
@@ -26,6 +26,7 @@ public final class Config: ObservableObject {
     @Published public var languageWidth: CGFloat = 48
     @Published public var volumeWidth: CGFloat = 48
     @Published public var rightSpacing: CGFloat = 16
+    @Published public var widgetGlassVariant: Int = 11
     @Published public var leftSpacing: CGFloat = 8
 
 
@@ -90,8 +91,8 @@ public final class Config: ObservableObject {
         }
 
         if let glassVariant: Int = value("widget", "glass_variant") {
-            self.glassVariant = glassVariant
-            info("Loaded widget.glass_variant = \(self.glassVariant)")
+            self.windowGlassVariant = glassVariant
+            info("Loaded widget.glass_variant = \(self.windowGlassVariant)")
         }
     }
 

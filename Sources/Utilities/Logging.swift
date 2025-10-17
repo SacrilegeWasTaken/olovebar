@@ -2,7 +2,7 @@ import Foundation
 
 @usableFromInline
 let modules: [LogModules] = [
-    // .OLoveBar, 
+    .OLoveBar, 
     .Config,
     .Utilities, 
     .Widgets([
@@ -14,7 +14,7 @@ let modules: [LogModules] = [
         .languageModel, 
         .volumeModel, 
         .widgetModel, 
-        // .wifiModel
+        .wifiModel
     ])
 ]
 
@@ -109,7 +109,7 @@ func log(level logLevel: LogLevel, message: String, module: LogModules, file: St
 func moduleIsEnabled(_ module: LogModules) -> Bool {
     for enabled in modules {
         switch (enabled, module) {
-            case (.OLoveBar, .OLoveBar), (.Utilities, .Utilities):
+            case (.OLoveBar, .OLoveBar), (.Utilities, .Utilities), (.Config, .Config):
                 return true
             case let (.Widgets(enabledSubs), .Widgets(requestedSubs)):
                 return !requestedSubs.filter { enabledSubs.contains($0) }.isEmpty

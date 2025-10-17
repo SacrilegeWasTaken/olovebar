@@ -25,7 +25,7 @@ struct BarContentView: View {
         ZStack {
             if self.theme_toggle == .trueBgRegularFront {
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: config.glassVariant) ?? .v11,
+                    variant: GlassVariant(rawValue: config.windowGlassVariant)!,
                     cornerRadius: config.widgetCornerRadius
                 ) {
                     Color.clear
