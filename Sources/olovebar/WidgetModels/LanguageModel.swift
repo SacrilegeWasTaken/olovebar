@@ -50,21 +50,4 @@ public class LanguageModel: ObservableObject {
             }
         }
     }
-
-    public func languageWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: {
-            self.toggle()
-        }) {
-            Text(self.current)
-                .foregroundColor(.white)
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: width, height: height)
-                .glassEffect()
-        }
-        .background(.clear)
-        .cornerRadius(cornerRadius)
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .onAppear { self.update() }
-    }
 }

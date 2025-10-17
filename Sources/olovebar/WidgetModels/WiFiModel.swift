@@ -93,41 +93,4 @@ public class WiFiModel: ObservableObject {
                result.contains("Active : FALSE") ||
                result.contains("Error:")
     }
-
-    
-    // Альтернативная версия с фиксированной высотой но адаптивной шириной
-    public func wifiWidget(width: CGFloat, height: CGFloat, cornerRadius: CGFloat) -> some View {
-        Button(action: {
-            Task { @MainActor in
-                self.update()
-            }
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: stateIcon)
-                    .foregroundColor(.white)
-                    .font(.system(size: height * 0.45, weight: .medium))
-                    .frame(width: height * 0.45)
-                
-                Text(ssid ?? "No Wi‑Fi")
-                    .foregroundColor(.white)
-                    .font(.system(size: height * 0.35, weight: .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .frame(height: height)
-            .glassEffect()
-        }
-        .buttonStyle(PlainButtonStyle())
-        .background(.clear)
-        .cornerRadius(cornerRadius)
-        .fixedSize(horizontal: true, vertical: false)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .onAppear {
-            Task { @MainActor in
-                self.update()
-            }
-        }
-    }
 }
