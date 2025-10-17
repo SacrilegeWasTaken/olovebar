@@ -22,46 +22,31 @@ struct BarContentView: View {
       
 
     var body: some View {
-
-        let appleLogoWidth = config.appleLogoWidth
-        let aerospaceWidth = config.aerospaceWidth
-        let activeAppWidth = config.activeAppWidth
-        let dateTimeWidth = config.dateTimeWidth
-        let widgetHeight = config.widgetHeight
-        let cornerRadius = config.widgetCornerRadius
-        let wifiWidth = config.wifiWidth
-        let batteryWidth = config.batteryWidth
-        let languageWidth = config.languageWidth
-        let volumeWidth = config.volumeWidth
-        let glassVariant = config.glassVariant
-        let rightSpacing = config.rightSpacing
-        let leftSpacing = config.leftSpacing
-
         ZStack {
             if self.theme_toggle == .trueBgRegularFront {
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: glassVariant) ?? .v11,
-                    cornerRadius: cornerRadius
+                    variant: GlassVariant(rawValue: config.glassVariant) ?? .v11,
+                    cornerRadius: config.widgetCornerRadius
                 ) {
                     Color.clear
                 }
             }
 
             let view = HStack(spacing: 0) {
-                HStack(spacing: rightSpacing) {
-                    AppleLogoWidgetView(model: appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle, width: appleLogoWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    AerospaceWidgetView(model: aerospaceModel, width: aerospaceWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    ActiveAppWidgetView(model: activeAppModel, width: activeAppWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                HStack(spacing: config.rightSpacing) {
+                    AppleLogoWidgetView(model: appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
+                    AerospaceWidgetView(model: aerospaceModel, config: config)
+                    ActiveAppWidgetView(model: activeAppModel, config: config)
                 }
 
                 Spacer()
 
-                HStack(spacing: leftSpacing) {
-                    WiFiWidgetView(model: wifiModel, width: wifiWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    BatteryWidgetView(model: batteryModel, width: batteryWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    LanguageWidgetView(model: languageModel, width: languageWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    VolumeWidgetView(model: volumeModel, width: volumeWidth, height: widgetHeight, cornerRadius: cornerRadius)
-                    DateTimeWidgetView(model: dateTimeModel, width: dateTimeWidth, height: widgetHeight, cornerRadius: cornerRadius)
+                HStack(spacing: config.leftSpacing) {
+                    WiFiWidgetView(model: wifiModel, config: config)
+                    BatteryWidgetView(model: batteryModel, config: config)
+                    LanguageWidgetView(model: languageModel, config: config)
+                    VolumeWidgetView(model: volumeModel, config: config)
+                    DateTimeWidgetView(model: dateTimeModel, config: config)
                 }
             }
 

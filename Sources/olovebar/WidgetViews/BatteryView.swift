@@ -4,9 +4,7 @@ import MacroAPI
 @LogFunctions(.Widgets([.batteryModel]))
 struct BatteryWidgetView: View {
     @ObservedObject var model: BatteryModel
-    let width: CGFloat
-    let height: CGFloat
-    let cornerRadius: CGFloat
+    @ObservedObject var config: Config
     var body: some View {
         Button(action: {
             let url = URL(fileURLWithPath: "/System/Applications/System Settings.app")
@@ -19,14 +17,14 @@ struct BatteryWidgetView: View {
                     .foregroundColor(.white)
                     .font(.system(size: 12))
             }
-            .frame(width: width, height: height)
+            .frame(width: config.batteryWidth, height: config.widgetHeight)
             .glassEffect()
         }
         .buttonStyle(.plain)
         .background(.clear)
-        .cornerRadius(cornerRadius)
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .cornerRadius(config.widgetCornerRadius)
+        .frame(width: config.batteryWidth, height: config.widgetHeight)
+        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .onAppear { model.startTimer() }
     }
 }

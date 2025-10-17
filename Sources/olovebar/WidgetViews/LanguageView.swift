@@ -4,21 +4,19 @@ import MacroAPI
 @LogFunctions(.Widgets([.languageModel]))
 struct LanguageWidgetView: View {
     @ObservedObject var model: LanguageModel
-    let width: CGFloat
-    let height: CGFloat
-    let cornerRadius: CGFloat
+    @ObservedObject var config: Config
     var body: some View {
         Button(action: { model.toggle() }) {
             Text(model.current)
                 .foregroundColor(.white)
                 .font(.system(size: 12, weight: .semibold))
-                .frame(width: width, height: height)
+                .frame(width: config.languageWidth, height: config.widgetHeight)
                 .glassEffect()
         }
         .buttonStyle(.plain)
-        .cornerRadius(cornerRadius)
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .cornerRadius(config.widgetCornerRadius)
+        .frame(width: config.languageWidth, height: config.widgetHeight)
+        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .onAppear { model.update() }
     }
 }

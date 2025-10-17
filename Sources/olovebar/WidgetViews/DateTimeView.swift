@@ -4,10 +4,7 @@ import MacroAPI
 @LogFunctions(.Widgets([.dateTimeModel]))
 struct DateTimeWidgetView: View {
     @ObservedObject var model: DateTimeModel
-    let width: CGFloat
-    let height: CGFloat
-    let cornerRadius: CGFloat
-
+    @ObservedObject var config: Config
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
             Button(action: {
@@ -24,12 +21,12 @@ struct DateTimeWidgetView: View {
                         .background(.clear)
                         .font(.system(size: 12))
                 }
-                .frame(width: width, height: height)
+                .frame(width: config.dateTimeWidth, height: config.widgetHeight)
                 .glassEffect()
             }
             .buttonStyle(.plain)
-            .frame(width: width, height: height)
-            .cornerRadius(cornerRadius)
+            .frame(width: config.dateTimeWidth, height: config.widgetHeight)
+            .cornerRadius(config.widgetCornerRadius)
         }
     }
 }

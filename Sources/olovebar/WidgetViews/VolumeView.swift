@@ -4,22 +4,20 @@ import MacroAPI
 @LogFunctions(.Widgets([.volumeModel]))
 struct VolumeWidgetView: View {
     @ObservedObject var model: VolumeModel
-    let width: CGFloat
-    let height: CGFloat
-    let cornerRadius: CGFloat
+    @ObservedObject var config: Config
     var body: some View {
         Button(action: { withAnimation { model.isPopoverPresented.toggle() } }) {
             Image(systemName: "speaker.wave.2.fill")
-                .frame(width: width, height: height)
+                .frame(width: config.volumeWidth, height: config.widgetHeight)
                 .foregroundColor(.white)
-                .cornerRadius(cornerRadius)
+                .cornerRadius(config.widgetCornerRadius)
                 .glassEffect()
         }
         .background(.clear)
         .buttonStyle(.plain)
-        .cornerRadius(cornerRadius)
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .cornerRadius(config.widgetCornerRadius)
+        .frame(width: config.volumeWidth, height: config.widgetHeight)
+        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .popover(isPresented: Binding(get: { model.isPopoverPresented }, set: { model.isPopoverPresented = $0 })) {
             VStack(spacing: 12) {
                 Slider(value: Binding(get: { model.level }, set: { new in

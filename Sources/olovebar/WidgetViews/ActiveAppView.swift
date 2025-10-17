@@ -4,9 +4,7 @@ import MacroAPI
 @LogFunctions(.Widgets([.activeAppModel]))
 struct ActiveAppWidgetView: View {
     @ObservedObject var model: ActiveAppModel
-    let width: CGFloat
-    let height: CGFloat
-    let cornerRadius: CGFloat
+    @ObservedObject var config: Config
     var body: some View {
         Button(action: {}) {
             HStack(spacing: 0) {
@@ -16,12 +14,11 @@ struct ActiveAppWidgetView: View {
                     .lineLimit(1)
                     .fixedSize()
             }
-            .frame(minWidth: width)
-            .frame(height: height)
+            .frame(minWidth: config.activeAppWidth)
+            .frame(height: config.widgetHeight)
             .background(.clear)
-            .padding(.horizontal, 16)
             .glassEffect()
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
     }
