@@ -35,7 +35,7 @@ struct AppleLogoWidgetView: View {
         .cornerRadius(cornerRadius)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .contextMenu {
-            Button("Настройки…") {
+            Button("Settings") {
                 controller.show()
             }
         }
@@ -57,7 +57,7 @@ struct ConfigEditorView: View {
                 DragWindowArea().frame(width: .infinity, height: .infinity)
                 VStack(alignment: .trailing, spacing: 12) {
                     HStack {
-                        Text("⚙️ Настройки OLoveBar")
+                        Text("⚙️ OLoveBar settings")
                             .font(.title2.bold())
                         Spacer()
                         Button(action: { controller.close() }) {
