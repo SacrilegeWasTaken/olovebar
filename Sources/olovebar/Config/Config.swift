@@ -6,7 +6,7 @@ import MacroAPI
 public final class Config: ObservableObject {
     private var path: String
     private var data: TOMLTable?
-    // Window Configuration
+    
     // MARK: - Window Configuration
     @Published public var barHeight: CGFloat = 35
     @Published public var barHorizontalCut: CGFloat = 10
@@ -29,7 +29,7 @@ public final class Config: ObservableObject {
     @Published public var widgetGlassVariant: Int = 11
     @Published public var leftSpacing: CGFloat = 8
 
-
+    // MARK: - Init
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configPath = home.appendingPathComponent(".config/olovebar/olovebar.toml").path
@@ -37,7 +37,7 @@ public final class Config: ObservableObject {
         load()
     }
 
-
+    // MARK: - Load
     private func load() {
         guard FileManager.default.fileExists(atPath: path) else {
             debug("⚠️ Config not found at \(path)")
@@ -48,94 +48,181 @@ public final class Config: ObservableObject {
             let content = try String(contentsOfFile: path, encoding: .utf8)
             let table = try TOMLTable(string: content)
             self.data = table
+            info("✅ Config loaded from \(path), \(String(describing: self.data))")
             load_window()
             load_widget()
-            info("✅ Config loaded from \(path)")
         } catch {
             warn("❌ Failed to parse TOML: \(error)")
         }
-
-
     }
 
 
-    private func value<T>(_ section: String, _ key: String) -> T? {
-        guard
-            let sectionTable = data?[section] as? TOMLTable,
-            let value = sectionTable[key] as? T
-        else { return nil }
+    private func section(_ name: String) -> TOMLTable? {
+        guard let node = data?[name] else {
+            warn("Section not found: \(name)")
+            return nil
+        }
+        
+        if let table = node.table {
+            return table
+        } else {
+            warn("Section \(name) is not a TOMLTable, got \(type(of: node))")
+            return nil
+        }
+    }
 
-        return value
+    private func value(_ section: String, _ key: String) -> String? {
+        guard let sectionTable = self.section(section) else { return nil }
+        guard let node = sectionTable[key] else { return nil }
+        
+        return node.string ?? node.int.map { String($0) } ?? node.double.map { String($0) }
     }
 
 
     private func load_window() {
-        if let barHeightValue: Double = value("window", "bar_height") {
-            self.barHeight = CGFloat(barHeightValue)
-            info("Loaded window.bar_height = \(self.barHeight)")
-        }
-
-        if let barHorizontalCut: Double = value("window", "bar_horizontal_cut") {
-            self.barHorizontalCut = CGFloat(barHorizontalCut)
-            info("Loaded window.bar_horizontal_cut = \(self.barHorizontalCut)")
-        }
-
-        if let barVerticalCut: Double = value("window", "bar_vertical_cut") {
-            self.barVerticalCut = CGFloat(barVerticalCut)
-            info("Loaded window.bar_vertical_cut = \(self.barVerticalCut)")
-        }
-
-        if let windowCornerRadius: Double = value("window", "bar_vertical_cut") {
-            self.windowCornerRadius = CGFloat(windowCornerRadius)
-            info("Loaded window.bar_vertical_cut = \(self.windowCornerRadius)")
-        }
-
-        if let glassVariant: Int = value("widget", "glass_variant") {
-            self.windowGlassVariant = glassVariant
-            info("Loaded widget.glass_variant = \(self.windowGlassVariant)")
-        }
+        load_section(
+            name: "window",
+            doubles: [
+                ("bar_height", { self.barHeight = CGFloat($0) }),
+                ("bar_horizontal_cut", { self.barHorizontalCut = CGFloat($0) }),
+                ("bar_vertical_cut", { self.barVerticalCut = CGFloat($0) }),
+                ("corner_radius", { self.windowCornerRadius = CGFloat($0) })
+            ],
+            ints: [
+                ("glass_variant", { self.windowGlassVariant = $0 })
+            ]
+        )
     }
 
 
     private func load_widget() {
-        if let appleLogoWidth: Double = value("widget", "apple_button_width") {
-            self.appleLogoWidth = CGFloat(appleLogoWidth)
-            info("Loaded widget.apple_button_width = \(self.appleLogoWidth)")
-        }
+        load_section(
+            name: "widget",
+            doubles: [
+                ("apple_button_width", { self.appleLogoWidth = CGFloat($0) }),
+                ("aerospace_width", { self.aerospaceWidth = CGFloat($0) }),
+                ("active_app_width", { self.activeAppWidth = CGFloat($0) }),
+                ("time_button_width", { self.dateTimeWidth = CGFloat($0) }),
+                ("widget_height", { self.widgetHeight = CGFloat($0) }),
+                ("corner_radius", { self.widgetCornerRadius = CGFloat($0) }),
+                ("wifi_width", { self.wifiWidth = CGFloat($0) }),
+                ("battery_width", { self.batteryWidth = CGFloat($0) }),
+                ("language_width", { self.languageWidth = CGFloat($0) }),
+                ("volume_width", { self.volumeWidth = CGFloat($0) }),
+                ("right_spacing", { self.rightSpacing = CGFloat($0) }),
+                ("left_spacing", { self.leftSpacing = CGFloat($0) })
+            ],
+            ints: [
+                ("glass_variant", { self.widgetGlassVariant = $0 })
+            ]
+        )
+    }
 
-        if let dateTimeWidth: Double = value("widget", "time_button_width") {
-            self.dateTimeWidth = CGFloat(dateTimeWidth)
-            info("Loaded widget.time_button_width = \(self.dateTimeWidth)")
-        }
 
-        if let widgetHeight: Double = value("widget", "widget_height") {
-            self.widgetHeight = CGFloat(widgetHeight)
-            info("Loaded widget.widget_height = \(self.widgetHeight)")
-        }
 
-        if let widgetCornerRadius: Double = value("widget", "corner_radius") {
-            self.widgetCornerRadius = CGFloat(widgetCornerRadius)
-            info("Loaded widget.corner_radius = \(self.widgetCornerRadius)")
+    private func load_section(
+        name: String,
+        doubles: [(key: String, assign: (Double) -> Void)] = [],
+        ints: [(key: String, assign: (Int) -> Void)] = []
+    ) {
+        info("Loading Sections")
+        for (key, assign) in doubles {
+            if let value = value(name, key) {
+                debug("Value 1: \(value)")
+                if let value: Double = Double(value) {
+                    debug("Value 2: \(value)")
+                    assign(value)
+                    info("Loaded \(name).\(key) = \(value)")
+                } else {
+                    warn("NOT LOADED: \(name).\(key)")
+                }
+            }
         }
-
-        if let wifiWidth: Double = value("widget", "wifi_width") {
-            self.wifiWidth = CGFloat(wifiWidth)
-            info("Loaded widget.wifi_width = \(self.wifiWidth)")
+        
+        for (key, assign) in ints {
+            if let value = value(name, key) {
+                debug("Value 11: \(value)")
+                if let value: Int = Int(value) {
+                    debug("Value 22: \(value)")
+                    assign(value)
+                    info("Loaded \(name).\(key) = \(value)")
+                } else {
+                    warn("NOT LOADED: \(name).\(key)")
+                }
+            }
         }
+    }
 
-        if let batteryWidth: Double = value("widget", "battery_width") {
-            self.batteryWidth = CGFloat(batteryWidth)
-            info("Loaded widget.battery_width = \(self.batteryWidth)")
-        }
+    
+    public func save() {
+        let snapshot = (
+            path: path,
+            barHeight: barHeight,
+            barHorizontalCut: barHorizontalCut,
+            barVerticalCut: barVerticalCut,
+            windowCornerRadius: windowCornerRadius,
+            windowGlassVariant: windowGlassVariant,
+            appleLogoWidth: appleLogoWidth,
+            aerospaceWidth: aerospaceWidth,
+            activeAppWidth: activeAppWidth,
+            dateTimeWidth: dateTimeWidth,
+            widgetHeight: widgetHeight,
+            widgetCornerRadius: widgetCornerRadius,
+            wifiWidth: wifiWidth,
+            batteryWidth: batteryWidth,
+            languageWidth: languageWidth,
+            volumeWidth: volumeWidth,
+            rightSpacing: rightSpacing,
+            leftSpacing: leftSpacing,
+            widgetGlassVariant: widgetGlassVariant
+        )
 
-        if let languageWidth: Double = value("widget", "language_width") {
-            self.languageWidth = CGFloat(languageWidth)
-            info("Loaded widget.language_width = \(self.languageWidth)")
-        }
+        DispatchQueue.global(qos: .utility).async {
+            let root = TOMLTable()
 
-        if let volumeWidth: Double = value("widget", "volume_width") {
-            self.volumeWidth = CGFloat(volumeWidth)
-            info("Loaded widget.volume_width = \(self.volumeWidth)")
+            // MARK: - Window section
+            let window: TOMLTable = [
+                "bar_height": Double(snapshot.barHeight),
+                "bar_horizontal_cut": Double(snapshot.barHorizontalCut),
+                "bar_vertical_cut": Double(snapshot.barVerticalCut),
+                "corner_radius": Double(snapshot.windowCornerRadius),
+                "glass_variant": snapshot.windowGlassVariant
+            ]
+            root["window"] = window
+
+            // MARK: - Widget section
+            let widget: TOMLTable = [
+                "apple_button_width": Double(snapshot.appleLogoWidth),
+                "aerospace_width": Double(snapshot.aerospaceWidth),
+                "active_app_width": Double(snapshot.activeAppWidth),
+                "time_button_width": Double(snapshot.dateTimeWidth),
+                "widget_height": Double(snapshot.widgetHeight),
+                "corner_radius": Double(snapshot.widgetCornerRadius),
+                "wifi_width": Double(snapshot.wifiWidth),
+                "battery_width": Double(snapshot.batteryWidth),
+                "language_width": Double(snapshot.languageWidth),
+                "volume_width": Double(snapshot.volumeWidth),
+                "right_spacing": Double(snapshot.rightSpacing),
+                "left_spacing": Double(snapshot.leftSpacing),
+                "glass_variant": snapshot.widgetGlassVariant
+            ]
+            root["widget"] = widget
+
+            // Serialize
+            let tomlString = root.convert()
+
+            do {
+                let dir = (snapshot.path as NSString).deletingLastPathComponent
+                if !FileManager.default.fileExists(atPath: dir) {
+                    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+                }
+
+                try tomlString.write(toFile: snapshot.path, atomically: true, encoding: .utf8)
+
+                Utilities.info("💾 Config saved to \(snapshot.path)", module: .Config, file: #file, function: #function, line: #line)
+            } catch {
+                Utilities.warn("❌ Failed to save config: \(error)", module: .Config, file: #file, function: #function, line: #line)
+            }
         }
     }
 }

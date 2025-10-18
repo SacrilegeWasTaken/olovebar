@@ -94,6 +94,7 @@ struct ConfigEditorView: View {
                             GlassStepper(title: "Левый отступ", value: $config.leftSpacing, range: 0...50)
                         }
                     }
+                    LiquidGlassButton(title: "Save", width: 200, height: config.widgetHeight, action: self.config.save)
                 }
                 .padding(16)
                 .frame(width: 600, height: 800)

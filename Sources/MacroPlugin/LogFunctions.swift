@@ -59,7 +59,7 @@ public struct LogFunctionsMacro: MemberMacro {
         return levels.map { level in
             DeclSyntax("""
             @inlinable
-            func \(raw: level)(_ message: String, file: String = #fileID, function: String = #function, line: Int = #line) {
+            nonisolated func \(raw: level)(_ message: String, file: String = #fileID, function: String = #function, line: Int = #line) {
                 Utilities.\(raw: level)(message, module: \(raw: moduleCode), file: file, function: function, line: line)
             }
             """)
