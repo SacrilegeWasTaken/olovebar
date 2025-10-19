@@ -14,13 +14,15 @@ struct LanguageWidgetView: View {
                 Text(model.current)
                     .foregroundColor(.white)
                     .font(.system(size: 12, weight: .semibold))
-                    .frame(width: config.languageWidth, height: config.widgetHeight)
+                    .padding(.horizontal, 8)
+                    .frame(height: config.widgetHeight)
+                    .frame(minWidth: config.languageWidth)
             }
             .buttonStyle(.plain)
             .cornerRadius(config.widgetCornerRadius)
-            .frame(width: config.languageWidth, height: config.widgetHeight)
+            .frame(minWidth: config.languageWidth)
+            .frame(height: config.widgetHeight)
             .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-            .onAppear { model.update() }
         }
     }
 }
