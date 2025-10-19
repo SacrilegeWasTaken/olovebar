@@ -8,6 +8,7 @@ import Carbon
 public class LanguageModel: ObservableObject {
     @Published var current: String = "EN"
     nonisolated(unsafe) private var observer: Any?
+    nonisolated(unsafe) private var timer: Timer?
 
     public init() {
         update()
@@ -20,34 +21,40 @@ public class LanguageModel: ObservableObject {
                 self?.update()
             }
         }
+        
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.update()
+            }
+        }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
     deinit {
         if let observer {
             DistributedNotificationCenter.default().removeObserver(observer)
         }
+        timer?.invalidate()
     }
 
     private func update() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
-                let languages = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages) else {
-                DispatchQueue.main.async {
-                    self?.current = "EN"
-                }
-                return
-            }
-            let langs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue() as! [String]
-            let langCode = langs.first ?? "en"
-            DispatchQueue.main.async {
-                self?.info("Language: \(langCode.uppercased())")
-                self?.current = langCode.uppercased()
-            }
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let languages = TISGetInputSourceProperty(source, kTISPropertyInputSourceLanguages) else {
+            current = "EN"
+            return
+        }
+        let langs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue() as! [String]
+        let langCode = langs.first ?? "en"
+        let newLang = langCode.uppercased()
+        info("Language: \(newLang)")
+        if current != newLang {
+            current = newLang
         }
     }
 
     public func toggle() {
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
             
             let filter = [kTISPropertyInputSourceIsSelectCapable: true] as CFDictionary
@@ -61,6 +68,11 @@ public class LanguageModel: ObservableObject {
             if let currentIndex = enabledSources.firstIndex(where: { $0 == currentSource }) {
                 let nextIndex = (currentIndex + 1) % enabledSources.count
                 TISSelectInputSource(enabledSources[nextIndex])
+                
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(50))
+                    self?.update()
+                }
             }
         }
     }
