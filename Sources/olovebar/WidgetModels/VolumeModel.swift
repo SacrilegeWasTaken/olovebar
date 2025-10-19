@@ -74,17 +74,17 @@ public class VolumeModel: ObservableObject {
             }
             
             var nameSize: UInt32 = 256
-            var name = [CChar](repeating: 0, count: 256)
+            // var name = [CChar](repeating: 0, count: 256)
             var nameAddress = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyDeviceNameCFString,
                 mScope: kAudioObjectPropertyScopeGlobal,
                 mElement: kAudioObjectPropertyElementMain
             )
-            var cfName: CFString?
-            nameSize = UInt32(MemoryLayout<CFString?>.size)
+            var cfName: Unmanaged<CFString>?
+            nameSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
             AudioObjectGetPropertyData(deviceID, &nameAddress, 0, nil, &nameSize, &cfName)
-            
-            return AudioDevice(id: deviceID, name: cfName as String? ?? "Unknown")
+
+            return AudioDevice(id: deviceID, name: cfName?.takeRetainedValue() as String? ?? "Unknown")
         }
 
         info("Output devices: \(audioDevices)")
