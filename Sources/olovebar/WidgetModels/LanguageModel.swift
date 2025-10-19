@@ -22,7 +22,7 @@ public class LanguageModel: ObservableObject {
             }
         }
         
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.update()
