@@ -7,19 +7,26 @@ import Carbon
 @LogFunctions(.Widgets([.languageModel]))
 public class LanguageModel: ObservableObject {
     @Published var current: String = "EN"
-    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var observer: Any?
 
     public init() {
         update()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self else { return }
+        observer = DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
             Task { @MainActor in
-                self.update()
+                self?.update()
             }
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
+    deinit {
+        if let observer {
+            DistributedNotificationCenter.default().removeObserver(observer)
+        }
+    }
 
     private func update() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -33,14 +40,14 @@ public class LanguageModel: ObservableObject {
             let langs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue() as! [String]
             let langCode = langs.first ?? "en"
             DispatchQueue.main.async {
+                self?.info("Language: \(langCode.uppercased())")
                 self?.current = langCode.uppercased()
             }
         }
     }
 
-
     public func toggle() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        DispatchQueue.global(qos: .userInitiated).async {
             guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
             
             let filter = [kTISPropertyInputSourceIsSelectCapable: true] as CFDictionary
@@ -54,10 +61,6 @@ public class LanguageModel: ObservableObject {
             if let currentIndex = enabledSources.firstIndex(where: { $0 == currentSource }) {
                 let nextIndex = (currentIndex + 1) % enabledSources.count
                 TISSelectInputSource(enabledSources[nextIndex])
-            }
-            
-            DispatchQueue.main.async {
-                self?.update()
             }
         }
     }
