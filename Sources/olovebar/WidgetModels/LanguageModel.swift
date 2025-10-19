@@ -54,26 +54,24 @@ public class LanguageModel: ObservableObject {
     }
 
     public func toggle() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
-            
-            let filter = [kTISPropertyInputSourceIsSelectCapable: true] as CFDictionary
-            guard let sources = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource] else { return }
-            
-            let enabledSources = sources.filter { source in
-                let isSelectable = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsSelectCapable)
-                return isSelectable != nil && Unmanaged<CFBoolean>.fromOpaque(isSelectable!).takeUnretainedValue() == kCFBooleanTrue
+        guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
+        
+        guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }
+        
+        let enabledSources = sourceList.filter { source in
+            guard let isEnabled = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsEnabled),
+                  Unmanaged<CFBoolean>.fromOpaque(isEnabled).takeUnretainedValue() == kCFBooleanTrue,
+                  let category = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) else {
+                return false
             }
-            
-            if let currentIndex = enabledSources.firstIndex(where: { $0 == currentSource }) {
-                let nextIndex = (currentIndex + 1) % enabledSources.count
-                TISSelectInputSource(enabledSources[nextIndex])
-                
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(50))
-                    self?.update()
-                }
-            }
+            let cat = Unmanaged<CFString>.fromOpaque(category).takeUnretainedValue() as String
+            return cat == kTISCategoryKeyboardInputSource as String
         }
+        
+        guard enabledSources.count > 1,
+              let currentIndex = enabledSources.firstIndex(where: { $0 == currentSource }) else { return }
+        
+        let nextIndex = (currentIndex + 1) % enabledSources.count
+        TISSelectInputSource(enabledSources[nextIndex])
     }
 }
