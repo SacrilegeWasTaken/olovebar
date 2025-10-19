@@ -1,39 +1,55 @@
 import SwiftUI
 import Foundation
+import CoreAudio
 import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
 public class VolumeModel: ObservableObject {
-    @Published var level: Double = 50
+    @Published var level: Float!
     @Published var isPopoverPresented: Bool = false
 
     public init() {
-        update()
+        level = get()
     }
 
-    private func run(_ cmd: String) -> String {
-        let task = Process()
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.arguments = ["-c", cmd]
-        task.launchPath = "/bin/zsh"
-        do { try task.run(); task.waitUntilExit() } catch { return "" }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    func update() {
-        let out = self.run("osascript -e 'output volume of (get volume settings)'")
-        if let v = Double(out) { self.level = v }
+    public func get() -> Float {
+        var volume: Float32 = 0.5
+        var size = UInt32(MemoryLayout<Float32>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: AudioObjectPropertySelector(kAudioDevicePropertyVolumeScalar),
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID = AudioDeviceID(0)
+        var deviceSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var deviceAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &deviceAddress, 0, nil, &deviceSize, &deviceID)
+        AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
+        return volume
     }
 
     @MainActor
-    func set(_ value: Double) {
-        let v = Int(value)
-        // run applescript to set system volume
-        _ = run("osascript -e 'set volume output volume \(v)'")
-        // Also update cached value
-        self.level = value
+    public func set(_ value: Float) {
+        var volume = value
+        var address = AudioObjectPropertyAddress(
+            mSelector: AudioObjectPropertySelector(kAudioDevicePropertyVolumeScalar),
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID = AudioDeviceID(0)
+        var deviceSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var deviceAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &deviceAddress, 0, nil, &deviceSize, &deviceID)
+        AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+        level = value
     }
 }

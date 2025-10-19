@@ -1,5 +1,6 @@
 import SwiftUI
 import MacroAPI
+import AVFoundation
 
 @LogFunctions(.Widgets([.volumeModel]))
 struct VolumeWidgetView: View {
@@ -23,20 +24,7 @@ struct VolumeWidgetView: View {
             .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
             .popover(isPresented: Binding(get: { model.isPopoverPresented }, set: { model.isPopoverPresented = $0 })) {
                 VStack(spacing: 12) {
-                    Slider(value: Binding(get: { model.level }, set: { new in
-                        model.level = new
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            let cmd = "osascript -e 'set volume output volume \(Int(new))'"
-                            let task = Process()
-                            let pipe = Pipe()
-                            task.standardError = Pipe()
-                            task.standardOutput = pipe
-                            task.arguments = ["-c", cmd]
-                            task.launchPath = "/bin/zsh"
-                            task.launch()
-                            _ = pipe.fileHandleForReading.readDataToEndOfFile()
-                        }
-                    }), in: 0...100)
+                    Slider(value: Binding(get: { model.level }, set: { val in model.set(val) }), in: 0...1)
                     .frame(width: 200)
                     .padding()
                 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import MacroAPI
+import AVFoundation
 
 @LogFunctions(.Widgets([.dateTimeModel]))
 struct DateTimeWidgetView: View {
