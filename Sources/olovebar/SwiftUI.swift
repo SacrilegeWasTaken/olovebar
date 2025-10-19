@@ -19,7 +19,7 @@ struct BarContentView: View {
     @StateObject private var volumeModel = VolumeModel()
     @StateObject private var activeAppModel = ActiveAppModel()
     @StateObject private var dateTimeModel = DateTimeModel()
-      
+
 
     var body: some View {
         ZStack {
@@ -52,7 +52,3 @@ struct BarContentView: View {
         }
     }
 }
-
-
-
-
