@@ -13,7 +13,7 @@ struct Globals {
             let screenWidth = screen.frame.width
             let leftWidth = topLeft.width
             let rightWidth = topRight.width
-            let notchWidth = screenWidth - leftWidth - rightWidth + 50
+            let notchWidth = screenWidth - leftWidth - rightWidth
             let notchStart = leftWidth
             let notchEnd = notchStart + notchWidth
             
@@ -47,6 +47,7 @@ struct ActiveAppWidgetView: View {
     @State var showSubMenu: Bool = false
     @State var subMenuID: UUID!
     @State var spacerIndex: Int? = nil
+    @State var itemWidths: [Int: CGFloat] = [:]
     
     private var chevronType: String {
         showMenuBar ? "chevron.right" : "chevron.up"
@@ -123,13 +124,18 @@ struct ActiveAppWidgetView: View {
                             let _ = debug("Rendering item[\(index)] '\(item.title)', spacerIndex=\(String(describing: spacerIndex))")
                             if index == spacerIndex {
                                 let _ = debug("INSERTING SPACER before item[\(index)]")
-                                Color.clear.frame(width: Globals.notchWidth)
+                                let nextItemWidth = itemWidths[index] ?? 60
+                                Color.clear.frame(width: Globals.notchWidth + nextItemWidth)
                             }
                             menuItemView(item: item, index: index)
                                 .background(
                                     GeometryReader { itemGeo in
                                         let itemX = itemGeo.frame(in: .global).minX
-                                        let _ = debug("Item[\(index)] '\(item.title)' position: x=\(itemX)")
+                                        let itemWidth = itemGeo.size.width
+                                        let _ = debug("Item[\(index)] '\(item.title)' position: x=\(itemX), width=\(itemWidth)")
+                                        DispatchQueue.main.async {
+                                            itemWidths[index] = itemWidth
+                                        }
                                         return Color.clear.preference(
                                             key: ItemPositionKey.self,
                                             value: [index: itemX]
