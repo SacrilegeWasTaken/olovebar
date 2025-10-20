@@ -1,15 +1,35 @@
 import SwiftUI
 import MacroAPI
-
+import Cocoa
 
 struct Globals {
-    static let values: (notchWidth: CGFloat, screenWidth: CGFloat, notchStart: CGFloat, notchEnd: CGFloat) = {
-        let notchWidth: CGFloat = NSScreen.main?.safeAreaInsets.top ?? 0
-        let screenWidth: CGFloat = NSScreen.main?.frame.width ?? 0
-        let notchStart = (screenWidth / 2) - (notchWidth / 2)
-        let notchEnd = notchStart + notchWidth
-        return (notchWidth, screenWidth, notchStart, notchEnd)
-    }()
+    static func computeValues() -> (notchWidth: CGFloat, screenWidth: CGFloat, notchStart: CGFloat, notchEnd: CGFloat) {
+        guard let screen = NSScreen.main else {
+            let width = NSScreen.main?.frame.width ?? 0
+            return (0, width, 0, width)
+        }
+        
+        if let topLeft = screen.auxiliaryTopLeftArea, let topRight = screen.auxiliaryTopRightArea {
+            let screenWidth = screen.frame.width
+            let leftWidth = topLeft.width
+            let rightWidth = topRight.width
+            let notchWidth = screenWidth - leftWidth - rightWidth
+            let notchStart = leftWidth
+            let notchEnd = notchStart + notchWidth
+            
+            // print("screenWidth: \(screenWidth), notchWidth: \(notchWidth), notchStart: \(notchStart), notchEnd: \(notchEnd)")
+
+            return (notchWidth, screenWidth, notchStart, notchEnd)
+        } else {
+            // Если челки нет
+            let screenWidth = screen.frame.width
+            return (0, screenWidth, 0, screenWidth)
+        }
+    }
+
+    static var values: (notchWidth: CGFloat, screenWidth: CGFloat, notchStart: CGFloat, notchEnd: CGFloat) {
+        computeValues()
+    }
 
     static var notchWidth: CGFloat { values.notchWidth }
     static var screenWidth: CGFloat { values.screenWidth }
@@ -26,6 +46,7 @@ struct ActiveAppWidgetView: View {
     @State var showMenuBar: Bool = false    
     @State var showSubMenu: Bool = false
     @State var subMenuID: UUID!
+    @State var spacerIndex: Int? = nil
     
     private var chevronType: String {
         showMenuBar ? "chevron.right" : "chevron.up"
@@ -77,38 +98,77 @@ struct ActiveAppWidgetView: View {
     }
     
     private var contentView: some View {
-        HStack(spacing: 8) {
-            Text(model.appName)
-                .foregroundColor(.white)
-                .font(.system(size: 12))
-                .lineLimit(1)
-                .fixedSize()
+        GeometryReader { geo in
+            let globalX = geo.frame(in: .global).minX
+            let _ = debug("globalX: \(globalX), notchStart: \(Globals.notchStart), notchEnd: \(Globals.notchEnd), notchWidth: \(Globals.notchWidth)")
             
-            Image(systemName: chevronType)
-                .foregroundColor(.white)
-                .font(.system(size: 12))
-                .lineLimit(1)
-                .fixedSize()
-                .animation(.linear(duration: 0.3), value: chevronType)
-            
-            if showMenuBar {
-                let _ = debug("=== NOTCH INFO: start=\(Globals.notchStart), end=\(Globals.notchEnd), width=\(Globals.notchWidth), screenWidth=\(Globals.screenWidth) ===")
-                HStack(spacing: 2) {
-                    ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
-                        menuItemView(item: item, index: index)
+            HStack(spacing: 8) {
+                Text(model.appName)
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .fixedSize()
+                
+                Image(systemName: chevronType)
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .fixedSize()
+                
+                if showMenuBar {
+                    let _ = debug("=== MENU BAR RENDERING ===")
+                    let _ = debug("Current spacerIndex: \(String(describing: spacerIndex))")
+                    HStack(spacing: 2) {
+                        ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
+                            let _ = debug("Rendering item[\(index)] '\(item.title)', spacerIndex=\(String(describing: spacerIndex))")
+                            if index == spacerIndex {
+                                let _ = debug("INSERTING SPACER before item[\(index)]")
+                                Color.clear.frame(width: Globals.notchWidth)
+                            }
+                            menuItemView(item: item, index: index)
+                                .background(
+                                    GeometryReader { itemGeo in
+                                        let itemX = itemGeo.frame(in: .global).minX
+                                        let _ = debug("Item[\(index)] '\(item.title)' position: x=\(itemX)")
+                                        return Color.clear.preference(
+                                            key: ItemPositionKey.self,
+                                            value: [index: itemX]
+                                        )
+                                    }
+                                )
+                        }
+                    }
+                    .onPreferenceChange(ItemPositionKey.self) { positions in
+                        let _ = debug("=== PREFERENCE CHANGE ===")
+                        let _ = debug("screen width: \(Globals.screenWidth), notchStart: \(Globals.notchStart), notchEnd: \(Globals.notchEnd), notchWidth: \(Globals.notchWidth)")
+                        let _ = debug("All positions: \(positions)")
+                        for i in 1..<model.menuItems.count {
+                            if let prevX = positions[i-1], let currX = positions[i] {
+                                let _ = debug("Check[\(i)]: prevX=\(prevX), currX=\(currX), notchStart=\(Globals.notchStart)")
+                                if prevX < Globals.notchStart && currX > Globals.notchStart {
+                                    let _ = debug("FOUND INTERSECTION at index \(i), setting spacerIndex=\(i)")
+                                    spacerIndex = i
+                                    return
+                                }
+                            }
+                        }
+                        let _ = debug("No intersection found, setting spacerIndex=nil")
+                        spacerIndex = nil
                     }
                 }
-                .transition(.opacity)
             }
+            .frame(minWidth: config.activeAppWidth)
+            .frame(height: config.widgetHeight)
+            .background(.clear)
+            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
+            .padding(.horizontal, 20)
         }
-        .frame(minWidth: config.activeAppWidth)
-        .frame(height: config.widgetHeight)
-        .background(.clear)
-        .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-        .animation(.linear(duration: 0.3), value: showMenuBar)
-        .padding(.horizontal, 20)
-        .onChange(of: showMenuBar) { _ in
-            // spacerInserted = false
+    }
+    
+    struct ItemPositionKey: PreferenceKey {
+        static let defaultValue: [Int: CGFloat] = [:]
+        static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+            value.merge(nextValue()) { $1 }
         }
     }
     
@@ -119,10 +179,8 @@ struct ActiveAppWidgetView: View {
                 cornerRadius: config.widgetCornerRadius
             ) {
                 Button(action: { 
-                    withAnimation{ 
-                        showMenuBar.toggle()
-                        hideRight.toggle()
-                    }
+                    showMenuBar.toggle()
+                    hideRight.toggle()
                 }) {
                     contentView
                 }
