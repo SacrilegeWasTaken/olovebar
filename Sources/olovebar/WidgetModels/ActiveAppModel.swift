@@ -12,6 +12,15 @@ public struct MenuItemData: Identifiable, Hashable {
     public let keyEquivalent: String
     public let isEnabled: Bool
     public let isSeparator: Bool
+    let element: AXUIElement?
+    
+    public static func == (lhs: MenuItemData, rhs: MenuItemData) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
 @MainActor
@@ -60,6 +69,12 @@ public class ActiveAppModel: ObservableObject {
         }
     }
     
+    func performAction(for item: MenuItemData) {
+        guard let element = item.element else { return }
+        AXUIElementPerformAction(element, kAXPressAction as CFString)
+        debug("Performed action for: \(item.title)")
+    }
+    
     private func extractMenuItems() -> [MenuItemData] {
         guard let app = NSWorkspace.shared.frontmostApplication else { return [] }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
@@ -89,8 +104,6 @@ public class ActiveAppModel: ObservableObject {
         debug("Extracted \(result.count) menu items")
         return result
     }
-    
-
 
     private func convertAXMenuItem(_ element: AXUIElement) -> MenuItemData? {
         var titleValue: AnyObject?
@@ -116,7 +129,8 @@ public class ActiveAppModel: ObservableObject {
             action: nil,
             keyEquivalent: "",
             isEnabled: true,
-            isSeparator: false
+            isSeparator: false,
+            element: element
         )
     }
 }

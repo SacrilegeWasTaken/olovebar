@@ -50,6 +50,7 @@ struct ActiveAppWidgetView: View {
                                                     Divider().padding(.vertical, 4)
                                                 } else {
                                                     Button(action: {
+                                                        model.performAction(for: subitem)
                                                         showSubMenu = false
                                                         showMenuBar = false
                                                     }) {
