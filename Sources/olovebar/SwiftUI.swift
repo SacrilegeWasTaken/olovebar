@@ -9,7 +9,7 @@ struct BarContentView: View {
 
 
     @State private var theme_toggle: Bool = true
-
+    @State private var hideRight: Bool = false
 
     @StateObject private var appleLogoModel = AppleLogoModel()
     @StateObject private var aerospaceModel = AerospaceModel()
@@ -36,17 +36,19 @@ struct BarContentView: View {
                 HStack(spacing: config.rightSpacing) {
                     AppleLogoWidgetView(model: appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
                     AerospaceWidgetView(model: aerospaceModel, config: config)
-                    ActiveAppWidgetView(model: activeAppModel, config: config)
+                    ActiveAppWidgetView(model: activeAppModel, config: config, hideRight: $hideRight)
                 }
 
                 Spacer()
-
-                HStack(spacing: config.leftSpacing) {
-                    WiFiWidgetView(model: wifiModel, config: config)
-                    BatteryWidgetView(model: batteryModel, config: config)
-                    LanguageWidgetView(model: languageModel, config: config)
-                    VolumeWidgetView(model: volumeModel, config: config)
-                    DateTimeWidgetView(model: dateTimeModel, config: config)
+                
+                if !hideRight {
+                    HStack(spacing: config.leftSpacing) {
+                        WiFiWidgetView(model: wifiModel, config: config)
+                        BatteryWidgetView(model: batteryModel, config: config)
+                        LanguageWidgetView(model: languageModel, config: config)
+                        VolumeWidgetView(model: volumeModel, config: config)
+                        DateTimeWidgetView(model: dateTimeModel, config: config)
+                    }
                 }
             }
         }
