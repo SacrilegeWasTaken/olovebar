@@ -4,7 +4,7 @@ import Utilities
 import MacroAPI
 import AppKit
 
-public struct MenuItemData: Identifiable {
+public struct MenuItemData: Identifiable, Hashable {
     public let id = UUID()
     public let title: String
     public let submenu: [MenuItemData]?
