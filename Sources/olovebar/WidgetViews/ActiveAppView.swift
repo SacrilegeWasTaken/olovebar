@@ -13,7 +13,7 @@ struct Globals {
             let screenWidth = screen.frame.width
             let leftWidth = topLeft.width
             let rightWidth = topRight.width
-            let notchWidth = screenWidth - leftWidth - rightWidth
+            let notchWidth = screenWidth - leftWidth - rightWidth + 50
             let notchStart = leftWidth
             let notchEnd = notchStart + notchWidth
             
@@ -142,10 +142,12 @@ struct ActiveAppWidgetView: View {
                         let _ = debug("=== PREFERENCE CHANGE ===")
                         let _ = debug("screen width: \(Globals.screenWidth), notchStart: \(Globals.notchStart), notchEnd: \(Globals.notchEnd), notchWidth: \(Globals.notchWidth)")
                         let _ = debug("All positions: \(positions)")
-                        for i in 1..<model.menuItems.count {
-                            if let prevX = positions[i-1], let currX = positions[i] {
-                                let _ = debug("Check[\(i)]: prevX=\(prevX), currX=\(currX), notchStart=\(Globals.notchStart)")
-                                if prevX < Globals.notchStart && currX > Globals.notchStart {
+                        for i in 0..<model.menuItems.count {
+                            if let itemX = positions[i] {
+                                let estimatedItemWidth: CGFloat = 60 // примерная ширина элемента меню
+                                let itemEnd = itemX + estimatedItemWidth
+                                let _ = debug("Check[\(i)]: itemX=\(itemX), itemEnd=\(itemEnd), notchStart=\(Globals.notchStart)")
+                                if itemEnd > Globals.notchStart {
                                     let _ = debug("FOUND INTERSECTION at index \(i), setting spacerIndex=\(i)")
                                     spacerIndex = i
                                     return
