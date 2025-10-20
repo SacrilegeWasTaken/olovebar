@@ -43,7 +43,7 @@ public class ActiveAppModel: ObservableObject {
     func startTimer() {
         timer?.invalidate()
         update()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.update()

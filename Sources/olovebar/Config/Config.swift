@@ -128,9 +128,9 @@ public final class Config: ObservableObject {
         info("Loading Sections")
         for (key, assign) in doubles {
             if let value = value(name, key) {
-                debug("Value 1: \(value)")
+                //debug("Value 1: \(value)")
                 if let value: Double = Double(value) {
-                    debug("Value 2: \(value)")
+                    //debug("Value 2: \(value)")
                     assign(value)
                     info("Loaded \(name).\(key) = \(value)")
                 } else {
@@ -141,9 +141,9 @@ public final class Config: ObservableObject {
         
         for (key, assign) in ints {
             if let value = value(name, key) {
-                debug("Value 11: \(value)")
+                //debug("Value 11: \(value)")
                 if let value: Int = Int(value) {
-                    debug("Value 22: \(value)")
+                    //debug("Value 22: \(value)")
                     assign(value)
                     info("Loaded \(name).\(key) = \(value)")
                 } else {
