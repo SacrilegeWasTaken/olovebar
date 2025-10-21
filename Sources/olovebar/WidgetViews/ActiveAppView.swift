@@ -57,7 +57,7 @@ struct ActiveAppWidgetView: View {
     @State var showSubMenu: Bool = false
     @State var subMenuID: UUID!
 
-    @State var shouldInsertOn: Int? = nil
+    @State var spacerData: SpacerData? = nil
 
     private var chevronType: String {
         showMenuBar ? "chevron.right" : "chevron.up"
@@ -106,11 +106,11 @@ struct ActiveAppWidgetView: View {
             if showMenuBar {
                 HStack {
                     ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
-                        let _ = trace("Drawing \(index): (\(shouldInsertOn ?? -1), \(1)) Item: \(item.title)")
-                        if let ourIndex = shouldInsertOn {
-                            if index == ourIndex {
+                        let _ = trace("Drawing \(index): (\(String(describing: spacerData)), \(1)) Item: \(item.title)")
+                        if let spacerDataLocal = spacerData {
+                            if index == spacerDataLocal.shouldInsertOn {
                                 let _ = error("Inserted spacer after index \(index), size: \(1)")
-                                Color.clear.frame(width: Globals.notchWidth)
+                                Color.clear.frame(width: Globals.notchWidth + spacerDataLocal.addableWidth)
                             }
                         }
                         menuItemView(item: item, index: index)
@@ -125,18 +125,18 @@ struct ActiveAppWidgetView: View {
                     }
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
-                    trace("PreferenceChanged: old -- (\(shouldInsertOn ?? -1), \(1)")
+                    trace("PreferenceChanged: old -- (\(String(describing: spacerData)), \(1)")
                     for (index, item) in newPositions {
                         let notchIntersection = isNotchIntersection(item: item)
                         if notchIntersection.isIntersected {
-                            shouldInsertOn = index
+                            spacerData = SpacerData(shouldInsertOn: index, addableWidth: notchIntersection.addableWidth)
                             break
                         }
                     }
-                    trace("PreferenceChanged: new -- (\(shouldInsertOn ?? -1), \(1))")
+                    trace("PreferenceChanged: new -- (\(String(describing: spacerData)), \(1))")
                 }
             }
-            let _ = shouldInsertOn = nil
+            let _ = spacerData = nil
         }
         .fixedSize()
         .frame(height: config.widgetHeight)
@@ -194,19 +194,21 @@ struct ActiveAppWidgetView: View {
 
     struct NotchIntersection {
         let isIntersected: Bool
-        let intersectionWidth: CGFloat
+        let addableWidth: CGFloat
     }
 
     private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection {        
         let rangesIntersect = item.minX < Globals.notchEnd && item.maxX > Globals.notchStart 
         
         guard rangesIntersect else {
-            return NotchIntersection(isIntersected: false, intersectionWidth: 0)
+            return NotchIntersection(isIntersected: false, addableWidth: 0)
         }
         
         let intersectionStart = max(item.minX, Globals.notchStart)
         let intersectionEnd = min(item.maxX, Globals.notchEnd)
         let intersectionWidth = intersectionEnd - intersectionStart
+        let widgetWidth = item.maxX - item.minX
+        let addableWidth = widgetWidth - intersectionWidth
         
         trace("""
         🔍 Perfect Intersection:
@@ -215,6 +217,11 @@ struct ActiveAppWidgetView: View {
         Intersection: [\(String(format: "%.1f", intersectionStart)), \(String(format: "%.1f", intersectionEnd))] = \(String(format: "%.1f", intersectionWidth))pt
         """)
         
-        return NotchIntersection(isIntersected: true, intersectionWidth: intersectionWidth)
+        return NotchIntersection(isIntersected: true, addableWidth: addableWidth)
     }
+}
+
+struct SpacerData {
+    let shouldInsertOn: Int
+    let addableWidth: CGFloat
 }
