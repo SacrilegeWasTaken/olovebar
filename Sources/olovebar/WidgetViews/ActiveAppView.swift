@@ -58,8 +58,6 @@ struct ActiveAppWidgetView: View {
     @State var subMenuID: UUID!
 
     @State var shouldInsertOn: Int? = nil
-    @State private var itemFrames: [Int: MenuItemFrame] = [:]
-
 
     private var chevronType: String {
         showMenuBar ? "chevron.right" : "chevron.up"
@@ -125,8 +123,6 @@ struct ActiveAppWidgetView: View {
                             }
                         )
                     }
-                }.onTapGesture {
-                    shouldInsertOn = nil
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
                     trace("PreferenceChanged: old -- (\(shouldInsertOn ?? -1), \(1)")
@@ -140,6 +136,7 @@ struct ActiveAppWidgetView: View {
                     trace("PreferenceChanged: new -- (\(shouldInsertOn ?? -1), \(1))")
                 }
             }
+            let _ = shouldInsertOn = nil
         }
         .fixedSize()
         .frame(height: config.widgetHeight)
