@@ -109,7 +109,7 @@ struct ActiveAppWidgetView: View {
                         let _ = trace("Drawing \(index): (\(String(describing: spacerData)), \(1)) Item: \(item.title)")
                         if let spacerDataLocal = spacerData {
                             if index == spacerDataLocal.shouldInsertOn {
-                                let _ = error("Inserted spacer after index \(index), size: \(1)")
+                                let _ = error("Inserted spacer after index \(index), size: \(Globals.notchWidth + spacerDataLocal.addableWidth)")
                                 Color.clear.frame(width: Globals.notchWidth + spacerDataLocal.addableWidth)
                             }
                         }
