@@ -57,8 +57,8 @@ struct ActiveAppWidgetView: View {
     @State var showSubMenu: Bool = false
     @State var subMenuID: UUID!
 
-    @State var itemFrameAppName: String = ""
-    @State var itemFrames: [Int: MenuItemFrame] = [:]
+    @State var shouldInsertOn: Int? = nil
+    @State private var itemFrames: [Int: MenuItemFrame] = [:]
 
 
     private var chevronType: String {
@@ -108,9 +108,12 @@ struct ActiveAppWidgetView: View {
             if showMenuBar {
                 HStack {
                     ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
-                        if model.appName == itemFrameAppName {
-                            let notchIntersection = isNotchIntersection(index: index)
-                            let _ = self.warn("NotchIntersection: \(notchIntersection.isIntersected), \(notchIntersection.intersectionWidth)")
+                        let _ = trace("Drawing \(index): (\(shouldInsertOn ?? -1), \(1)) Item: \(item.title)")
+                        if let ourIndex = shouldInsertOn {
+                            if index == ourIndex {
+                                let _ = error("Inserted spacer after index \(index), size: \(1)")
+                                Color.clear.frame(width: Globals.notchWidth)
+                            }
                         }
                         menuItemView(item: item, index: index)
                             .background( GeometryReader { geo in
@@ -122,11 +125,19 @@ struct ActiveAppWidgetView: View {
                             }
                         )
                     }
+                }.onTapGesture {
+                    shouldInsertOn = nil
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
-                    itemFrames = newPositions
-                    itemFrameAppName = model.appName
-                    trace("MenuPositions are Refreshed: \(newPositions)")
+                    trace("PreferenceChanged: old -- (\(shouldInsertOn ?? -1), \(1)")
+                    for (index, item) in newPositions {
+                        let notchIntersection = isNotchIntersection(item: item)
+                        if notchIntersection.isIntersected {
+                            shouldInsertOn = index
+                            break
+                        }
+                    }
+                    trace("PreferenceChanged: new -- (\(shouldInsertOn ?? -1), \(1))")
                 }
             }
         }
@@ -189,11 +200,7 @@ struct ActiveAppWidgetView: View {
         let intersectionWidth: CGFloat
     }
 
-    private func isNotchIntersection(index: Int) -> NotchIntersection {
-        guard let item = self.itemFrames[index] else {
-            return NotchIntersection(isIntersected: false, intersectionWidth: 0)
-        }
-        
+    private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection {        
         let rangesIntersect = item.minX < Globals.notchEnd && item.maxX > Globals.notchStart 
         
         guard rangesIntersect else {
