@@ -136,8 +136,10 @@ struct ActiveAppWidgetView: View {
                     trace("PreferenceChanged: new -- (\(String(describing: spacerData)), \(1))")
                 }
             }
+            let _ = error("Nilled")
             let _ = spacerData = nil
         }
+        .onDisappear(perform: {let _ = error("Nilled"); spacerData = nil})
         .fixedSize()
         .frame(height: config.widgetHeight)
         .frame(minWidth: config.activeAppWidth)
