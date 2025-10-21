@@ -1,12 +1,12 @@
 import SwiftUI
 import MacroAPI
 
-struct MenuItemFrame: Equatable {
+fileprivate struct MenuItemFrame: Equatable {
     let minX: CGFloat
     let maxX: CGFloat
 }
 
-struct Globals {
+fileprivate struct Globals {
     static func computeValues() -> (notchWidth: CGFloat, screenWidth: CGFloat, notchStart: CGFloat, notchEnd: CGFloat) {
         guard let screen = NSScreen.main else {
             let width = NSScreen.main?.frame.width ?? 0
@@ -38,7 +38,7 @@ struct Globals {
 }
 
 
-struct ItemPositionKey: PreferenceKey {
+fileprivate struct ItemPositionKey: PreferenceKey {
     static let defaultValue: [Int: MenuItemFrame] = [:]
     static func reduce(value: inout [Int: MenuItemFrame], nextValue: () -> [Int: MenuItemFrame]) {
         value.merge(nextValue()) { $1 }
@@ -53,11 +53,13 @@ struct ActiveAppWidgetView: View {
     @Binding var hideRight: Bool
 
 
-    @State var showMenuBar: Bool = false
-    @State var showSubMenu: Bool = false
-    @State var subMenuID: UUID!
+    @State private var showMenuBar: Bool = false
+    @State private var showSubMenu: Bool = false
+    @State private var subMenuID: UUID!
 
-    @State var spacerData: SpacerData? = nil
+
+    @State private var spacerData: SpacerData? = nil
+
 
     private var chevronType: String {
         showMenuBar ? "chevron.right" : "chevron.up"
@@ -139,7 +141,9 @@ struct ActiveAppWidgetView: View {
             let _ = error("Nilled")
             let _ = spacerData = nil
         }
-        .onDisappear(perform: {let _ = error("Nilled"); spacerData = nil})
+        .onDisappear(perform: {
+            error("Nilled by dissapear"); spacerData = nil
+        })
         .fixedSize()
         .frame(height: config.widgetHeight)
         .frame(minWidth: config.activeAppWidth)
@@ -194,7 +198,7 @@ struct ActiveAppWidgetView: View {
     }
 
 
-    struct NotchIntersection {
+    fileprivate struct NotchIntersection {
         let isIntersected: Bool
         let addableWidth: CGFloat
     }
@@ -223,7 +227,7 @@ struct ActiveAppWidgetView: View {
     }
 }
 
-struct SpacerData {
+fileprivate struct SpacerData {
     let shouldInsertOn: Int
     let addableWidth: CGFloat
 }

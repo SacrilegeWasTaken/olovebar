@@ -43,7 +43,7 @@ struct AppleLogoWidgetView: View {
 
 // MARK: - Config Editor View
 
-struct ConfigEditorView: View {
+fileprivate struct ConfigEditorView: View {
     @ObservedObject var controller: ConfigWindowController
     @ObservedObject var config: Config
     @State private var selectedTab = 0
@@ -128,7 +128,7 @@ struct ConfigEditorView: View {
     }
 }
 
-struct SettingsSection<Content: View>: View {
+fileprivate struct SettingsSection<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
     
@@ -186,7 +186,7 @@ final class ConfigWindowController: ObservableObject {
     }
 }
 
-struct GlassStepper<Value: Strideable>: View where Value.Stride: SignedNumeric {
+fileprivate struct GlassStepper<Value: Strideable>: View where Value.Stride: SignedNumeric {
     let title: String
     @Binding var value: Value
     let range: ClosedRange<Value>

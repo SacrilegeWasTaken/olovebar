@@ -4,15 +4,15 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
-public class WiFiModel: ObservableObject {
+class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
-    @Published var idealWidth: CGFloat = 120 // Начальная ширина
+    @Published var idealWidth: CGFloat = 120 
     
     nonisolated(unsafe) private var timer: Timer?
-    private let updateInterval: TimeInterval = 1.0 // 1 секунда
+    private let updateInterval: TimeInterval = 1.0
 
-    public init() {
+    init() {
         startAutoUpdate()
     }
     deinit {

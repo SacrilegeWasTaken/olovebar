@@ -13,7 +13,7 @@ public struct DragWindowArea: NSViewRepresentable {
 }
 
 @MainActor
-final class MouseDragView: NSView {
+private final class MouseDragView: NSView {
     private var initialLocation: NSPoint = .zero
 
     override func mouseDown(with event: NSEvent) {

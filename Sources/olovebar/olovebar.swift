@@ -1,13 +1,13 @@
 import Cocoa
 import SwiftUI
 
-final class BarWindow: NSWindow {
+class BarWindow: NSWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
 
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: BarWindow!
 
