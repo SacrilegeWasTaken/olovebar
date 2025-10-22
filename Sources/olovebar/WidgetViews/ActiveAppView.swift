@@ -108,16 +108,22 @@ struct ActiveAppWidgetView: View {
             if showMenuBar {
                 HStack {
                     ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
-                        let _ = trace("Drawing \(index): (\(String(describing: spacerData)), \(1)) Item: \(item.title)")
+                        let _ = trace("Drawing \(index), appName: \(model.menuItems[index].title)")
                         if let spacerDataLocal = spacerData {
                             if index == spacerDataLocal.shouldInsertOn {
-                                let _ = error("Inserted spacer after index \(index), size: \(Globals.notchWidth + spacerDataLocal.addableWidth)")
-                                Color.clear.frame(width: Globals.notchWidth + spacerDataLocal.addableWidth)
+                                let size = Globals.notchWidth + spacerDataLocal.addableWidth
+                                let widgetWidth = String(describing: spacerData?.widgetWidth)
+                                let addableWidth = String(describing: spacerData?.addableWidth)
+                                let _ = error("Inserted spacer after index \(index), size: \(size), widget size: \(widgetWidth), addable width \(addableWidth)")
+                                Color.clear.frame(width: size)
                             }
+                        } else {
+                            let _ = warn("No spacer data")
                         }
                         menuItemView(item: item, index: index)
                             .background( GeometryReader { geo in
                                 let frame = geo.frame(in: .global)
+                                let _ = info("Geometry reader: minX - \(frame.minX), maxX-\(frame.maxX)")
                                 Color.clear.preference(
                                     key: ItemPositionKey.self,
                                     value: [index: MenuItemFrame.init(minX: frame.minX, maxX: frame.maxX)]
@@ -131,7 +137,7 @@ struct ActiveAppWidgetView: View {
                     for (index, item) in newPositions {
                         let notchIntersection = isNotchIntersection(item: item)
                         if notchIntersection.isIntersected {
-                            spacerData = SpacerData(shouldInsertOn: index, addableWidth: notchIntersection.addableWidth)
+                            spacerData = SpacerData(shouldInsertOn: index, addableWidth: notchIntersection.addableWidth, widgetWidth: notchIntersection.widgetWidth)
                             break
                         }
                     }
@@ -201,13 +207,14 @@ struct ActiveAppWidgetView: View {
     fileprivate struct NotchIntersection {
         let isIntersected: Bool
         let addableWidth: CGFloat
+        let widgetWidth: CGFloat
     }
 
     private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection {        
         let rangesIntersect = item.minX < Globals.notchEnd && item.maxX > Globals.notchStart 
         
         guard rangesIntersect else {
-            return NotchIntersection(isIntersected: false, addableWidth: 0)
+            return NotchIntersection(isIntersected: false, addableWidth: 0, widgetWidth: 0)
         }
         
         let intersectionStart = max(item.minX, Globals.notchStart)
@@ -216,18 +223,12 @@ struct ActiveAppWidgetView: View {
         let widgetWidth = item.maxX - item.minX
         let addableWidth = widgetWidth - intersectionWidth
         
-        trace("""
-        🔍 Perfect Intersection:
-        Element: [\(String(format: "%.1f", item.minX)), \(String(format: "%.1f", item.maxX))]
-        Notch:   [\(String(format: "%.1f", Globals.notchStart)), \(String(format: "%.1f", Globals.notchEnd))]
-        Intersection: [\(String(format: "%.1f", intersectionStart)), \(String(format: "%.1f", intersectionEnd))] = \(String(format: "%.1f", intersectionWidth))pt
-        """)
-        
-        return NotchIntersection(isIntersected: true, addableWidth: addableWidth)
+        return NotchIntersection(isIntersected: true, addableWidth: addableWidth, widgetWidth: 0)
     }
 }
 
 fileprivate struct SpacerData {
     let shouldInsertOn: Int
     let addableWidth: CGFloat
+    let widgetWidth: CGFloat
 }
