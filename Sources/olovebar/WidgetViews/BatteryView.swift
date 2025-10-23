@@ -5,6 +5,13 @@ import MacroAPI
 struct BatteryWidgetView: View {
     @ObservedObject var model: BatteryModel
     @ObservedObject var config: Config
+    
+    var batteryColor: Color {
+        if model.isLowPowerMode { return .yellow.opacity(0.9) }
+        if model.percentage <= 20 { return .red }
+        return .white
+    }
+    
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
@@ -15,9 +22,36 @@ struct BatteryWidgetView: View {
                 NSWorkspace.shared.open(url)
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: model.isCharging ? "battery.100.bolt" : "battery.100")
-                        .foregroundColor(.white)
-                    Text("\(model.percentage)%")
+                    ZStack {
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .stroke(.white.opacity(0.6), lineWidth: 1)
+                                .frame(width: 22, height: 11)
+                            
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(batteryColor)
+                                .frame(width: max(2.5, CGFloat(model.percentage) / 100 * 19), height: 8)
+                                .padding(.leading, 1.5)
+                                .animation(.easeInOut(duration: 0.3), value: model.percentage)
+                            
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(batteryColor.opacity(0.6))
+                                .frame(width: 1.5, height: 4)
+                                .offset(x: 23)
+                        }
+                        
+                        if model.isCharging {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.white)
+                                .shadow(color: .black, radius: 0, x: 0.5, y: 0.5)
+                                .shadow(color: .black, radius: 0, x: -0.5, y: -0.5)
+                                .shadow(color: .black, radius: 0, x: 0.5, y: -0.5)
+                                .shadow(color: .black, radius: 0, x: -0.5, y: 0.5)
+                        }
+                    }
+                    
+                    Text("\(model.percentage!)%")
                         .foregroundColor(.white)
                         .font(.system(size: 12))
                 }
