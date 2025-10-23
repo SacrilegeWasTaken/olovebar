@@ -4,7 +4,7 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
-class WiFiModel: ObservableObject {
+public final class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
     @Published var idealWidth: CGFloat = 120 

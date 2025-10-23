@@ -3,6 +3,6 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.appleLogoModel]))
-public class AppleLogoModel: ObservableObject {
+public final class AppleLogoModel: ObservableObject {
 
 }

@@ -19,7 +19,7 @@ private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UI
 
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
-public class VolumeModel: ObservableObject {
+public final class VolumeModel: ObservableObject {
     var prevLevel: Float!
     @Published var level: Float!
     @Published var isPopoverPresented: Bool = false

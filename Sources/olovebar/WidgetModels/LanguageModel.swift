@@ -5,7 +5,7 @@ import Carbon
 
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
-public class LanguageModel: ObservableObject {
+public final class LanguageModel: ObservableObject {
     @Published var current: String!
     nonisolated(unsafe) private var observer: Any?
 

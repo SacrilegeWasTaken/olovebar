@@ -5,7 +5,7 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.batteryModel]))
-public class BatteryModel: ObservableObject {
+public final class BatteryModel: ObservableObject {
     @Published var percentage: Int!
     @Published var isCharging: Bool!
     @Published var state: String!
