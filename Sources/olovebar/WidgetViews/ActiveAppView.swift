@@ -90,6 +90,7 @@ struct ActiveAppWidgetView: View {
         }
     }
 
+
     private var contentView: some View {
         HStack(spacing: 8) {            
             Text(model.appName)
@@ -109,10 +110,11 @@ struct ActiveAppWidgetView: View {
                 HStack {
                     ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
                         let _ = trace("Drawing \(index), appName: \(model.menuItems[index].title)")
-                        if let spacerDataLocal = spacerData {
-                            if index == spacerDataLocal.shouldInsertOn {
-                                let size = Globals.notchWidth + spacerDataLocal.addableWidth
+                        if let spacerData = spacerData {
+                            if index == spacerData.shouldInsertOn {
+                                let size = Globals.notchWidth // + spacerData.addableWidth
                                 let _ = error("Inserted spacer after index \(index), size: \(size)")
+                                let _ = error("Widget Width: \(spacerData.widgetWidth), Addable Width: \(spacerData.addableWidth), Notch Width: \(Globals.notchWidth)")
                                 Color.clear.frame(width: size)
                             }
                         }
@@ -128,28 +130,27 @@ struct ActiveAppWidgetView: View {
                     }
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
-                    if spacerData != nil { return }
-                    trace("PreferenceChanged: old -- \(String(describing: spacerData))")
                     for (index, item) in newPositions {
                         if let notchIntersection = isNotchIntersection(item: item) {
                             spacerData = SpacerData(shouldInsertOn: index, addableWidth: notchIntersection.addableWidth, widgetWidth: notchIntersection.widgetWidth)
+                            warn("Preference Change")
                             break
                         }
                     }
-                    trace("PreferenceChanged: new -- \(String(describing: spacerData))")
                 }
             }
             let _ = error("Nilled")
-            let _ = spacerData = nil
+            //let _ = spacerData = nil
         }
         .onDisappear(perform: {
-            error("Nilled by dissapear"); spacerData = nil
+            //error("Nilled by dissapear"); spacerData = nil
         })
         .fixedSize()
         .frame(height: config.widgetHeight)
         .frame(minWidth: config.activeAppWidth)
         .padding(.horizontal, 20)
     }
+
 
     @ViewBuilder
     private func menuItemView(item: MenuItemData, index: Int) -> some View {
@@ -199,12 +200,6 @@ struct ActiveAppWidgetView: View {
     }
 
 
-    fileprivate struct NotchIntersection {
-        let isIntersected: Bool
-        let addableWidth: CGFloat
-        let widgetWidth: CGFloat
-    }
-
     private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection? {        
         let rangesIntersect = item.minX < Globals.notchEnd && item.maxX > Globals.notchStart 
         
@@ -212,18 +207,27 @@ struct ActiveAppWidgetView: View {
             return nil
         }
         
-        let intersectionStart = max(item.minX, Globals.notchStart)
-        let intersectionEnd = min(item.maxX, Globals.notchEnd)
-        let intersectionWidth = intersectionEnd - intersectionStart
+        warn("itemMaxX: \(item.maxX), itemMixX: \(item.minX), notchStart: \(Globals.notchStart)")
+        let intersectionWidth = item.maxX - Globals.notchStart
         let widgetWidth = item.maxX - item.minX
         let addableWidth = widgetWidth - intersectionWidth
+        warn("iterswidth: \(intersectionWidth), widwidth: \(widgetWidth), addablewidth: \(addableWidth)")
         
         return NotchIntersection(isIntersected: true, addableWidth: addableWidth, widgetWidth: widgetWidth)
     }
-}
 
-fileprivate struct SpacerData {
-    let shouldInsertOn: Int
-    let addableWidth: CGFloat
-    let widgetWidth: CGFloat
+
+    fileprivate struct SpacerData {
+        let shouldInsertOn: Int
+        let addableWidth: CGFloat
+        let widgetWidth: CGFloat
+    }
+
+
+
+    fileprivate struct NotchIntersection {
+        let isIntersected: Bool
+        let addableWidth: CGFloat
+        let widgetWidth: CGFloat
+    }
 }

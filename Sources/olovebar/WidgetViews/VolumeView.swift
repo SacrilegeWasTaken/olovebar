@@ -12,7 +12,7 @@ struct VolumeWidgetView: View {
             cornerRadius: config.widgetCornerRadius
         ) {
             Button(action: { withAnimation { model.isPopoverPresented.toggle() } }) {
-                let image = switch Double(model.level) {
+                var image = switch Double(model.level) {
                     case 0:
                         "speaker.slash.fill"
                     case 0.00000001..<0.33:
@@ -21,6 +21,9 @@ struct VolumeWidgetView: View {
                         "speaker.wave.2.fill"
                     default:
                         "speaker.wave.3.fill"
+                }
+                if model.isMuted {
+                    let _ = image = "speaker.slash.fill"
                 }
                 Image(systemName: image)
                     .frame(width: config.volumeWidth, height: config.widgetHeight)
@@ -41,7 +44,7 @@ struct VolumeWidgetView: View {
                             .frame(height: config.widgetHeight, alignment: .center)
                             .foregroundColor(.white)
                             .cornerRadius(config.widgetCornerRadius)
-                        Slider(value: Binding(get: { model.level }, set: { val in model.set(val) }), in: 0...1)
+                        Slider(value: Binding(get: { model.level }, set: { val in model.set_volume(val) }), in: 0...1)
                             .frame(width: 235)
                         Image(systemName: "speaker.wave.3.fill")
                             .foregroundColor(.white)
