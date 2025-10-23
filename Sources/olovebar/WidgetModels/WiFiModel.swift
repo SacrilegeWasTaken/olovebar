@@ -1,34 +1,47 @@
 import Foundation
 import SwiftUI
 import MacroAPI
+import Network
 
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
 public final class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
-    @Published var idealWidth: CGFloat = 120 
+    @Published var idealWidth: CGFloat = 120
     
-    nonisolated(unsafe) private var timer: Timer?
-    private let updateInterval: TimeInterval = 1.0
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "WiFiMonitor")
 
     init() {
-        startAutoUpdate()
-    }
-    deinit {
-        timer?.invalidate()
+        setupNetworkMonitoring()
+        update()
     }
     
-    private func startAutoUpdate() {
-        timer?.invalidate()
-        update()
-        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
-            guard let self else { return }
+    deinit {
+        monitor.cancel()
+    }
+    
+    private func setupNetworkMonitoring() {
+        monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor in
-                self.update()
+                self?.update()
+                self?.updateNetworkType(path: path)
             }
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
+        monitor.start(queue: queue)
+    }
+    
+    private func updateNetworkType(path: NWPath) {
+        if path.usesInterfaceType(.wifi) {
+            stateIcon = "wifi"
+        } else if path.usesInterfaceType(.wiredEthernet) {
+            stateIcon = "cable.connector"
+        } else if path.usesInterfaceType(.cellular) {
+            stateIcon = "personalhotspot"
+        } else {
+            stateIcon = "wifi.slash"
+        }
     }
 
     private func run(_ cmd: String) -> String {
@@ -58,11 +71,9 @@ public final class WiFiModel: ObservableObject {
         info("WiFi update - raw: '\(result)'")
         if result.isEmpty {
             self.ssid = nil
-            self.stateIcon = "wifi.slash"
             self.idealWidth = 100
         } else {
             self.ssid = result
-            self.stateIcon = "wifi"
             self.idealWidth = self.calculateIdealWidth(for: result)
         }
     }
