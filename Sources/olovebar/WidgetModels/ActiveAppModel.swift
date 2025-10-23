@@ -30,26 +30,25 @@ public class ActiveAppModel: ObservableObject {
     @Published var appName: String = ""
     @Published var menuItems: [MenuItemData] = []
 
-    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     public init() {
-        startTimer()
+        update()
+        observer = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.update()
+            }
+        }
     }
 
     deinit {
-        timer?.invalidate()
-    }
-
-    func startTimer() {
-        timer?.invalidate()
-        update()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.update()
-            }
+        if let observer {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
 
