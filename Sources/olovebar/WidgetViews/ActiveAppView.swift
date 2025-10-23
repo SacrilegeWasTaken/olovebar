@@ -111,19 +111,14 @@ struct ActiveAppWidgetView: View {
                         let _ = trace("Drawing \(index), appName: \(model.menuItems[index].title)")
                         if let spacerDataLocal = spacerData {
                             if index == spacerDataLocal.shouldInsertOn {
-                                let size = Globals.notchWidth + spacerDataLocal.addableWidth
-                                let widgetWidth = String(describing: spacerData?.widgetWidth)
-                                let addableWidth = String(describing: spacerData?.addableWidth)
-                                let _ = error("Inserted spacer after index \(index), size: \(size), widget size: \(widgetWidth), addable width \(addableWidth)")
+                                let size = Globals.notchWidth
+                                let _ = error("Inserted spacer after index \(index), size: \(size)")
                                 Color.clear.frame(width: size)
                             }
-                        } else {
-                            let _ = warn("No spacer data")
                         }
                         menuItemView(item: item, index: index)
                             .background( GeometryReader { geo in
                                 let frame = geo.frame(in: .global)
-                                let _ = info("Geometry reader: minX - \(frame.minX), maxX-\(frame.maxX)")
                                 Color.clear.preference(
                                     key: ItemPositionKey.self,
                                     value: [index: MenuItemFrame.init(minX: frame.minX, maxX: frame.maxX)]
@@ -133,15 +128,14 @@ struct ActiveAppWidgetView: View {
                     }
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
-                    trace("PreferenceChanged: old -- (\(String(describing: spacerData)), \(1)")
+                    trace("PreferenceChanged: old -- \(String(describing: spacerData))")
                     for (index, item) in newPositions {
-                        let notchIntersection = isNotchIntersection(item: item)
-                        if notchIntersection.isIntersected {
+                        if let notchIntersection = isNotchIntersection(item: item) {
                             spacerData = SpacerData(shouldInsertOn: index, addableWidth: notchIntersection.addableWidth, widgetWidth: notchIntersection.widgetWidth)
                             break
                         }
                     }
-                    trace("PreferenceChanged: new -- (\(String(describing: spacerData)), \(1))")
+                    trace("PreferenceChanged: new -- \(String(describing: spacerData))")
                 }
             }
             let _ = error("Nilled")
@@ -210,11 +204,11 @@ struct ActiveAppWidgetView: View {
         let widgetWidth: CGFloat
     }
 
-    private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection {        
+    private func isNotchIntersection(item: MenuItemFrame) -> NotchIntersection? {        
         let rangesIntersect = item.minX < Globals.notchEnd && item.maxX > Globals.notchStart 
         
         guard rangesIntersect else {
-            return NotchIntersection(isIntersected: false, addableWidth: 0, widgetWidth: 0)
+            return nil
         }
         
         let intersectionStart = max(item.minX, Globals.notchStart)
