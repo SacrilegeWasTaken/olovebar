@@ -3,6 +3,31 @@ import SwiftUI
 import MacroAPI
 import Network
 
+// @MainActor
+// class MyViewModel: ObservableObject {
+//     @Published var text = "Загрузка..."
+    
+//     func loadData() {
+//         Task { // создаём асинхронную задачу
+//             // Переходим на фоновый поток
+//             let result = await Task.detached(priority: .background) {
+//                 // Это выполняется не на UI-потоке
+//                 heavyCalculation()
+//             }.value
+
+//             // Возвращаемся на главный поток (автоматически, т.к. ViewModel — @MainActor)
+//             text = "Результат: \(result)"
+//         }
+//     }
+// }
+
+// func heavyCalculation() -> Int {
+//     // например, долгая CPU-операция
+//     (0..<100_000_000).reduce(0, +)
+// }
+
+
+
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
 public final class WiFiModel: ObservableObject {

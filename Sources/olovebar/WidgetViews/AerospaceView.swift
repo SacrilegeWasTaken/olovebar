@@ -29,6 +29,7 @@ struct AerospaceWidgetView: View {
                 .animation(.interpolatingSpring(duration: 0.1), value: model.focused)
             }
         }
+        .padding(.horizontal, 4)
         .background(.clear)
         .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .frame(height: config.widgetHeight)
