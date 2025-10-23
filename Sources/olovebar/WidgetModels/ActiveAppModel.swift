@@ -52,6 +52,7 @@ public class ActiveAppModel: ObservableObject {
         if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
+
     func update() {
         if let app = NSWorkspace.shared.frontmostApplication {
             let name = app.localizedName ?? ""
