@@ -24,11 +24,12 @@ struct BatteryWidgetView: View {
                 HStack(spacing: 6) {
                     ZStack {
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(.white.opacity(0.6), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(.white.opacity(0.8), lineWidth: 0.85)
                                 .frame(width: 22, height: 11)
+                                .mask(Rectangle().frame(width: .infinity, height: .infinity).cornerRadius(3).blendMode(.overlay))
                             
-                            RoundedRectangle(cornerRadius: 2)
+                            RoundedRectangle(cornerRadius: 2.5)
                                 .fill(batteryColor)
                                 .frame(width: max(2.5, CGFloat(model.percentage) / 100 * 19), height: 8)
                                 .padding(.leading, 1.5)
@@ -39,15 +40,23 @@ struct BatteryWidgetView: View {
                                 .frame(width: 1.5, height: 4)
                                 .offset(x: 23)
                         }
-                        
+                        .mask(
+                            ZStack {
+                                Rectangle().frame(width: .infinity, height: .infinity).cornerRadius(3).blendMode(.overlay)
+                                if model.isCharging {
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 12, weight: .regular))
+                                        .shadow(color: .black, radius: 0, x: 0.5, y: 0.5)
+                                        .shadow(color: .black, radius: 0, x: -0.5, y: -0.5)
+                                        .shadow(color: .black, radius: 0, x: 0.5, y: -0.5)
+                                        .shadow(color: .black, radius: 0, x: -0.5, y: 0.5)
+                                        .blendMode(.destinationOut)
+                                }
+                            }
+                        )
                         if model.isCharging {
                             Image(systemName: "bolt.fill")
                                 .font(.system(size: 12, weight: .regular))
-                                .foregroundColor(.white)
-                                .shadow(color: .black, radius: 0, x: 0.5, y: 0.5)
-                                .shadow(color: .black, radius: 0, x: -0.5, y: -0.5)
-                                .shadow(color: .black, radius: 0, x: 0.5, y: -0.5)
-                                .shadow(color: .black, radius: 0, x: -0.5, y: 0.5)
                         }
                     }
                     
