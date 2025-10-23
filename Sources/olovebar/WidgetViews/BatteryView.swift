@@ -28,7 +28,6 @@ struct BatteryWidgetView: View {
             .cornerRadius(config.widgetCornerRadius)
             .frame(width: config.batteryWidth, height: config.widgetHeight)
             .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-            .onAppear { model.startTimer() }
         }
     }
 }

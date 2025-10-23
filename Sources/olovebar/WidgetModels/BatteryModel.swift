@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import IOKit.ps
 import MacroAPI
 
 @MainActor
@@ -8,59 +9,47 @@ public class BatteryModel: ObservableObject {
     @Published var percentage: Int = 100
     @Published var isCharging: Bool = false
 
-    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource?
 
     public init() {
-        startTimer()
+        update()
+        setupPowerNotifications()
     }
 
     deinit {
-        timer?.invalidate()
+        if let powerSourceLoop {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerSourceLoop, .defaultMode)
+        }
     }
 
-
-
-    func startTimer() {
-        timer?.invalidate()
-        update()
-        timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
+    private func setupPowerNotifications() {
+        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        powerSourceLoop = IOPSNotificationCreateRunLoopSource({ context in
+            guard let context else { return }
+            let model = Unmanaged<BatteryModel>.fromOpaque(context).takeUnretainedValue()
             Task { @MainActor in
-                self.update()
+                model.update()
             }
+        }, context).takeRetainedValue()
+        
+        if let powerSourceLoop {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), powerSourceLoop, .defaultMode)
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
-    }
-
-    private func run(_ cmd: String) -> String {
-        let task = Process()
-        let pipe = Pipe()
-        task.standardError = Pipe()
-        task.standardOutput = pipe
-        task.arguments = ["-c", cmd]
-        task.launchPath = "/bin/zsh"
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            return ""
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     func update() {
-        let out = self.run("pmset -g batt")
-        if let percentMatch = out.split(separator: "\n").first(where: { $0.contains("%") }) {
-            let s = String(percentMatch)
-            var newPercent = self.percentage
-            if let pRange = s.range(of: "\\d+%", options: .regularExpression) {
-                let pStr = s[pRange].replacingOccurrences(of: "%", with: "")
-                newPercent = Int(pStr) ?? self.percentage
-            }
-            let charging = s.contains("charging") || s.contains("AC attached") || s.contains("charged")
-            self.percentage = newPercent
-            self.isCharging = charging
+        guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
+              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef],
+              let source = sources.first,
+              let info = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any]
+        else { return }
+        
+        if let capacity = info[kIOPSCurrentCapacityKey] as? Int {
+            self.percentage = capacity
+        }
+        
+        if let state = info[kIOPSPowerSourceStateKey] as? String {
+            self.isCharging = (state == kIOPSACPowerValue)
         }
     }
 }
