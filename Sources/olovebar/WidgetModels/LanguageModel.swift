@@ -6,9 +6,8 @@ import Carbon
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
 public class LanguageModel: ObservableObject {
-    @Published var current: String = "EN"
+    @Published var current: String!
     nonisolated(unsafe) private var observer: Any?
-    nonisolated(unsafe) private var timer: Timer?
 
     public init() {
         update()
@@ -18,24 +17,20 @@ public class LanguageModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.update()
-            }
-        }
-        
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
+                // Double check to avoid rapid clicking bug due to async context
+                guard let self else { return }
                 self.update()
+                try await Task.sleep(nanoseconds: 100_000_000)
+                self.update()
+                self.info("Language: \(self.current!)")
             }
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
     deinit {
         if let observer {
             DistributedNotificationCenter.default().removeObserver(observer)
         }
-        timer?.invalidate()
     }
 
     private func update() {
@@ -47,7 +42,6 @@ public class LanguageModel: ObservableObject {
         let langs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue() as! [String]
         let langCode = langs.first ?? "en"
         let newLang = langCode.uppercased()
-        info("Language: \(newLang)")
         if current != newLang {
             current = newLang
         }
