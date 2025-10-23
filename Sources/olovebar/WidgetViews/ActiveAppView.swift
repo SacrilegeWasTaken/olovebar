@@ -111,7 +111,7 @@ struct ActiveAppWidgetView: View {
                         let _ = trace("Drawing \(index), appName: \(model.menuItems[index].title)")
                         if let spacerDataLocal = spacerData {
                             if index == spacerDataLocal.shouldInsertOn {
-                                let size = Globals.notchWidth
+                                let size = Globals.notchWidth + spacerDataLocal.addableWidth
                                 let _ = error("Inserted spacer after index \(index), size: \(size)")
                                 Color.clear.frame(width: size)
                             }
@@ -128,6 +128,7 @@ struct ActiveAppWidgetView: View {
                     }
                 }
                 .onPreferenceChange(ItemPositionKey.self) { newPositions in
+                    if spacerData != nil { return }
                     trace("PreferenceChanged: old -- \(String(describing: spacerData))")
                     for (index, item) in newPositions {
                         if let notchIntersection = isNotchIntersection(item: item) {
@@ -217,7 +218,7 @@ struct ActiveAppWidgetView: View {
         let widgetWidth = item.maxX - item.minX
         let addableWidth = widgetWidth - intersectionWidth
         
-        return NotchIntersection(isIntersected: true, addableWidth: addableWidth, widgetWidth: 0)
+        return NotchIntersection(isIntersected: true, addableWidth: addableWidth, widgetWidth: widgetWidth)
     }
 }
 
