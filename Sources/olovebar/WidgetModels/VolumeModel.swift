@@ -11,6 +11,7 @@ public struct AudioDevice: Identifiable, Equatable {
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
 public class VolumeModel: ObservableObject {
+    var prevLevel: Float!
     @Published var level: Float!
     @Published var isPopoverPresented: Bool = false
     @Published var isMuted: Bool = false
@@ -20,10 +21,10 @@ public class VolumeModel: ObservableObject {
 
     public init() {
         currentDeviceID = getDefaultOutputDevice()
-        level = get_volume()
+        level = getVolume()
         outputDevices = getOutputDevices()
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.update()
@@ -32,12 +33,24 @@ public class VolumeModel: ObservableObject {
         if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
 
-    private func update() {
-        level = get_volume()
-        outputDevices = getOutputDevices()
-        currentDeviceID = getDefaultOutputDevice()
-        isMuted = get_muted()
+private func update() {
+    prevLevel = level
+    let newLevel = getVolume()
+    let newMuted = getMuted()
+    // Обновляем mute-состояние
+    isMuted = newMuted
+
+    // Если устройство в mute — показываем level = 0 в интерфейсе
+    if newMuted {
+        level = 0
+    } else {
+        level = newLevel
     }
+
+    outputDevices = getOutputDevices()
+    currentDeviceID = getDefaultOutputDevice()
+}
+
 
     private func getDefaultOutputDevice() -> AudioDeviceID {
         var deviceID = AudioDeviceID(0)
@@ -93,7 +106,7 @@ public class VolumeModel: ObservableObject {
         return audioDevices
     }
 
-    private func get_volume() -> Float {
+    private func getVolume() -> Float {
         var volume: Float32 = 0.5
         var size = UInt32(MemoryLayout<Float32>.size)
         var address = AudioObjectPropertyAddress(
@@ -108,7 +121,7 @@ public class VolumeModel: ObservableObject {
     }
 
 
-    private func get_muted() -> Bool {
+    private func getMuted() -> Bool {
         var muted: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
         var address = AudioObjectPropertyAddress(
@@ -130,7 +143,7 @@ public class VolumeModel: ObservableObject {
 
 
     @MainActor
-    public func set_volume(_ value: Float) {
+    public func setVolume(_ value: Float) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             var volume = value
@@ -146,6 +159,25 @@ public class VolumeModel: ObservableObject {
         }
     }
 
+    public func setMuted(_ muted: Bool) {
+        var muteValue: UInt32 = muted ? 1 : 0
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        let deviceID = getDefaultOutputDevice()
+        let status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout.size(ofValue: muteValue)), &muteValue)
+        
+        if status != noErr {
+            self.error("Error setting mute: \(status)")
+        } else {
+            self.debug("Mute set to: \(muted)")
+        }
+    }
+
+
     public func setOutputDevice(_ deviceID: AudioDeviceID) {
         var id = deviceID
         var address = AudioObjectPropertyAddress(
@@ -156,6 +188,6 @@ public class VolumeModel: ObservableObject {
         AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &id)
         currentDeviceID = deviceID
         info("Output device set: \(deviceID)")
-        level = get_volume()
+        level = getVolume()
     }
 }

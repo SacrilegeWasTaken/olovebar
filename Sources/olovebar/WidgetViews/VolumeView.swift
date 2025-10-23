@@ -44,7 +44,15 @@ struct VolumeWidgetView: View {
                             .frame(height: config.widgetHeight, alignment: .center)
                             .foregroundColor(.white)
                             .cornerRadius(config.widgetCornerRadius)
-                        Slider(value: Binding(get: { model.level }, set: { val in model.set_volume(val) }), in: 0...1)
+                        Slider(value: Binding(
+                            get: { model.level }, 
+                            set: { val in 
+                                if model.isMuted && val > 0 { 
+                                    model.setMuted(false)
+                                    model.isMuted = false
+                                }       
+                                model.setVolume(val)}
+                        ), in: 0...1)
                             .frame(width: 235)
                         Image(systemName: "speaker.wave.3.fill")
                             .foregroundColor(.white)
