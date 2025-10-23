@@ -69,6 +69,7 @@ struct ActiveAppWidgetView: View {
         )) {
             submenuView(for: item)
         }
+        .buttonStyle(.plain)
     }
         
 
