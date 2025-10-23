@@ -8,6 +8,15 @@ public struct AudioDevice: Identifiable, Equatable {
     public let name: String
 }
 
+private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UInt32, _ addresses: UnsafePointer<AudioObjectPropertyAddress>, _ clientData: UnsafeMutableRawPointer?) -> OSStatus {
+    guard let clientData else { return 0 }
+    let model = Unmanaged<VolumeModel>.fromOpaque(clientData).takeUnretainedValue()
+    Task { @MainActor in
+        model.update()
+    }
+    return 0
+}
+
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
 public class VolumeModel: ObservableObject {
@@ -17,39 +26,65 @@ public class VolumeModel: ObservableObject {
     @Published var isMuted: Bool = false
     @Published var outputDevices: [AudioDevice] = []
     @Published var currentDeviceID: AudioDeviceID = 0
-    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var storedDeviceID: AudioDeviceID = 0
 
     public init() {
         currentDeviceID = getDefaultOutputDevice()
+        storedDeviceID = currentDeviceID
         level = getVolume()
         outputDevices = getOutputDevices()
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.update()
-            }
+        setupListeners()
+    }
+
+    nonisolated deinit {
+        let deviceID = storedDeviceID
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar, mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        address.mSelector = kAudioDevicePropertyMute
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        address.mSelector = kAudioHardwarePropertyDefaultOutputDevice
+        address.mScope = kAudioObjectPropertyScopeGlobal
+        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        address.mSelector = kAudioHardwarePropertyDevices
+        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+    }
+
+    private func setupListeners() {
+        let deviceID = getDefaultOutputDevice()
+        addListener(deviceID: deviceID, selector: kAudioDevicePropertyVolumeScalar)
+        addListener(deviceID: deviceID, selector: kAudioDevicePropertyMute)
+        addListener(deviceID: AudioObjectID(kAudioObjectSystemObject), selector: kAudioHardwarePropertyDefaultOutputDevice)
+        addListener(deviceID: AudioObjectID(kAudioObjectSystemObject), selector: kAudioHardwarePropertyDevices)
+    }
+
+
+
+    private func addListener(deviceID: AudioDeviceID, selector: AudioObjectPropertySelector) {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: selector == kAudioHardwarePropertyDefaultOutputDevice || selector == kAudioHardwarePropertyDevices ? kAudioObjectPropertyScopeGlobal : kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+    }
+
+    fileprivate func update() {
+        prevLevel = level
+        let newLevel = getVolume()
+        let newMuted = getMuted()
+
+        isMuted = newMuted
+
+        if newMuted {
+            level = 0
+        } else {
+            level = newLevel
         }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
+
+        outputDevices = getOutputDevices()
+        currentDeviceID = getDefaultOutputDevice()
+        storedDeviceID = currentDeviceID
     }
-
-private func update() {
-    prevLevel = level
-    let newLevel = getVolume()
-    let newMuted = getMuted()
-    // Обновляем mute-состояние
-    isMuted = newMuted
-
-    // Если устройство в mute — показываем level = 0 в интерфейсе
-    if newMuted {
-        level = 0
-    } else {
-        level = newLevel
-    }
-
-    outputDevices = getOutputDevices()
-    currentDeviceID = getDefaultOutputDevice()
-}
 
 
     private func getDefaultOutputDevice() -> AudioDeviceID {
