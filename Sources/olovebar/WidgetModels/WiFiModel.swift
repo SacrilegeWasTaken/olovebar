@@ -9,6 +9,7 @@ public final class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
     @Published var idealWidth: CGFloat = 120
+    @Published var signalStrength: Int = 0
     
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "WiFiMonitor")
@@ -33,14 +34,36 @@ public final class WiFiModel: ObservableObject {
     }
     
     private func updateNetworkType(path: NWPath) {
-        if path.usesInterfaceType(.wifi) {
-            stateIcon = "wifi"
-        } else if path.usesInterfaceType(.wiredEthernet) {
+        let interfaces = path.availableInterfaces
+        
+        if let interface = interfaces.first(where: { $0.type == .wifi }) {
+            updateWiFiSignal(interface: interface.name)
+            info("WiFi update - type: wifi (\(interface.name)), signal: \(signalStrength)")
+        } else if let interface = interfaces.first(where: { $0.type == .wiredEthernet }) {
             stateIcon = "cable.connector"
-        } else if path.usesInterfaceType(.cellular) {
+            info("WiFi update - type: ethernet (\(interface.name))")
+        } else if let interface = interfaces.first(where: { $0.type == .cellular }) {
             stateIcon = "personalhotspot"
+            info("WiFi update - type: cellular (\(interface.name))")
         } else {
             stateIcon = "wifi.slash"
+            info("WiFi update - type: none")
+        }
+    }
+    
+    private func updateWiFiSignal(interface: String) {
+        let cmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/ agrCtlRSSI/ {print $2}'"
+        let result = run(cmd)
+        signalStrength = Int(result) ?? 0
+        
+        if signalStrength >= -50 {
+            stateIcon = "wifi"
+        } else if signalStrength >= -60 {
+            stateIcon = "wifi"
+        } else if signalStrength >= -70 {
+            stateIcon = "wifi"
+        } else {
+            stateIcon = "wifi"
         }
     }
 
