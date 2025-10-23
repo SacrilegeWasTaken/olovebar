@@ -34,29 +34,35 @@ struct BatteryWidgetView: View {
                                 .frame(width: max(2.5, CGFloat(model.percentage) / 100 * 19), height: 8)
                                 .padding(.leading, 1.5)
                                 .animation(.easeInOut(duration: 0.3), value: model.percentage)
-                            
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(batteryColor.opacity(0.6))
-                                .frame(width: 1.5, height: 4)
-                                .offset(x: 23)
                         }
                         .mask(
                             ZStack {
                                 Rectangle().frame(width: .infinity, height: .infinity).cornerRadius(3).blendMode(.overlay)
                                 if model.isCharging {
+                                    let shadow_size: CGFloat = 0.2
                                     Image(systemName: "bolt.fill")
-                                        .font(.system(size: 12, weight: .regular))
-                                        .shadow(color: .black, radius: 0, x: 0.5, y: 0.5)
-                                        .shadow(color: .black, radius: 0, x: -0.5, y: -0.5)
-                                        .shadow(color: .black, radius: 0, x: 0.5, y: -0.5)
-                                        .shadow(color: .black, radius: 0, x: -0.5, y: 0.5)
+                                        .font(.system(size: 11, weight: .regular))
+                                        .shadow(color: .black, radius: 0, x: shadow_size, y: 0)
+                                        .shadow(color: .black, radius: 0, x: -shadow_size, y: 0)
+                                        .shadow(color: .black, radius: 0, x: 0, y: shadow_size)
+                                        .shadow(color: .black, radius: 0, x: 0, y: -shadow_size)
+                                        .shadow(color: .black, radius: 0, x: shadow_size, y: shadow_size)
+                                        .shadow(color: .black, radius: 0, x: -shadow_size, y: -shadow_size)
+                                        .shadow(color: .black, radius: 0, x: shadow_size, y: -shadow_size)
+                                        .shadow(color: .black, radius: 0, x: -shadow_size, y: shadow_size)
                                         .blendMode(.destinationOut)
                                 }
                             }
                         )
+                        
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(batteryColor.opacity(0.6))
+                            .frame(width: 1.5, height: 4)
+                            .offset(x: 12)
+                        
                         if model.isCharging {
                             Image(systemName: "bolt.fill")
-                                .font(.system(size: 12, weight: .regular))
+                                .font(.system(size: 11, weight: .regular))
                         }
                     }
                     
