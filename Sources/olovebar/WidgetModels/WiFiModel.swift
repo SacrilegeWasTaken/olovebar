@@ -127,28 +127,24 @@ public final class WiFiModel: ObservableObject {
     }
     
     private func calculateIdealWidth(for text: String) -> CGFloat {
-        // Базовые отступы и иконка
+        // Basic padding
         let basePadding: CGFloat = 30
         let iconWidth: CGFloat = 20
         let spacing: CGFloat = 6
         
-        // Ориентировочная ширина символа
         let averageCharWidth: CGFloat = 7.5
         
-        // Рассчитываем ширину текста
         let textWidth = CGFloat(text.count) * averageCharWidth
         
-        // Итоговая ширина с отступами и иконкой
         let totalWidth = basePadding + iconWidth + spacing + textWidth
         
-        // Ограничиваем минимальную и максимальную ширину
         return max(100, min(totalWidth, 300))
     }
     
     private func isError(_ result: String) -> Bool {
         return result.contains("You are not associated with an AirPort network") ||
                result.contains("not associated") ||
-               result.contains("802.11") || // Это тип Wi-Fi, а не SSID
+               result.contains("802.11") || // WiFi type not SSID
                result.contains("Active : FALSE") ||
                result.contains("Error:")
     }

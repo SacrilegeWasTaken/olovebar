@@ -19,7 +19,7 @@ private final class MouseDragView: NSView {
     override func mouseDown(with event: NSEvent) {
         guard let window = self.window else { return }
 
-        // Получаем позицию клика относительно окна
+        // Click location on a window
         let windowFrame = window.frame
         let clickLocation = window.convertToScreen(NSRect(origin: event.locationInWindow, size: .zero)).origin
         initialLocation = NSPoint(x: clickLocation.x - windowFrame.origin.x,
@@ -29,14 +29,14 @@ private final class MouseDragView: NSView {
     override func mouseDragged(with event: NSEvent) {
         guard let window = self.window else { return }
 
-        // Текущее положение курсора на экране
+        // Cursor location on a screen
         let screenLocation = window.convertToScreen(NSRect(origin: event.locationInWindow, size: .zero)).origin
 
-        // Новая позиция окна — текущее положение минус начальное смещение
+        // new window origin
         var newOrigin = NSPoint(x: screenLocation.x - initialLocation.x,
                                 y: screenLocation.y - initialLocation.y)
 
-        // Немного ограничим движение, чтобы окно не вылетало за экран (опционально)
+        // Movement bounds
         if let screen = window.screen {
             let visibleFrame = screen.visibleFrame
             newOrigin.x = max(visibleFrame.minX, min(newOrigin.x, visibleFrame.maxX - window.frame.width))

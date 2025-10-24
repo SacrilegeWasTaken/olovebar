@@ -34,11 +34,11 @@ public enum LogLevel: Int, Sendable, Equatable {
     @usableFromInline
     var colorCode: String {
         switch self {
-        case .trace: return "\u{001B}[37m" // белый
-        case .debug: return "\u{001B}[34m" // синий
-        case .info:  return "\u{001B}[32m" // зелёный
-        case .warn:  return "\u{001B}[33m" // жёлтый
-        case .error: return "\u{001B}[31m" // красный
+        case .trace: return "\u{001B}[37m" // white
+        case .debug: return "\u{001B}[34m" // blue
+        case .info:  return "\u{001B}[32m" // green
+        case .warn:  return "\u{001B}[33m" // yellow
+        case .error: return "\u{001B}[31m" // red
         }
     }
 }
@@ -97,7 +97,7 @@ func log(level logLevel: LogLevel, message: String, module: LogModules, file: St
         guard logLevel.rawValue >= level.rawValue else { return }
 
         if moduleIsEnabled(module) {
-            // ANSI код для цвета + сброс в конце (\u{001B}[0m)
+            // ANSI color code + drop at the end (\u{001B}[0m)
             let fileName = URL(fileURLWithPath: file).lastPathComponent
             let coloredMessage = "\(logLevel.colorCode)[\(logLevel)]:[\(fileName):\(line)] - \(message)\u{001B}[0m"
             print(coloredMessage)
