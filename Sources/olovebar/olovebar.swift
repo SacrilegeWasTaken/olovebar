@@ -6,7 +6,7 @@ class BarWindow: NSWindow {
     override var canBecomeMain: Bool { false }
 }
 
-
+@main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     var window: BarWindow!
