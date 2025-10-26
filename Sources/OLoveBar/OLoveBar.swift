@@ -8,6 +8,12 @@ class BarWindow: NSWindow {
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
 
     var window: BarWindow!
 
