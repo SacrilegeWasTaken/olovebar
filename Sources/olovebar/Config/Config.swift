@@ -6,13 +6,14 @@ import MacroAPI
 public final class Config: ObservableObject {
     private var path: String
     private var data: TOMLTable?
-    
+
     // MARK: - Window Configuration
     @Published public var barHeight: CGFloat = 35
     @Published public var barHorizontalCut: CGFloat = 10
     @Published public var barVerticalCut: CGFloat = 2
     @Published public var windowGlassVariant: Int = 12
     @Published public var windowCornerRadius: CGFloat = 16
+    @Published public var hideWindowOnFullScreen: Bool = true
 
     // MARK: - Widget Configuration
     @Published public var appleLogoWidth: CGFloat = 45
@@ -62,7 +63,7 @@ public final class Config: ObservableObject {
             warn("Section not found: \(name)")
             return nil
         }
-        
+
         if let table = node.table {
             return table
         } else {
@@ -74,7 +75,7 @@ public final class Config: ObservableObject {
     private func value(_ section: String, _ key: String) -> String? {
         guard let sectionTable = self.section(section) else { return nil }
         guard let node = sectionTable[key] else { return nil }
-        
+
         return node.string ?? node.int.map { String($0) } ?? node.double.map { String($0) }
     }
 
@@ -138,7 +139,7 @@ public final class Config: ObservableObject {
                 }
             }
         }
-        
+
         for (key, assign) in ints {
             if let value = value(name, key) {
                 //debug("Value 11: \(value)")
@@ -153,7 +154,7 @@ public final class Config: ObservableObject {
         }
     }
 
-    
+
     public func save() {
         let snapshot = (
             path: path,
