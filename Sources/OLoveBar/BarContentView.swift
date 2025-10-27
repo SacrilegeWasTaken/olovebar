@@ -5,7 +5,7 @@ import MacroAPI
 
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
-    @StateObject var config = Config()
+    @StateObject var config: Config
 
 
     @State private var theme_toggle: Bool = true

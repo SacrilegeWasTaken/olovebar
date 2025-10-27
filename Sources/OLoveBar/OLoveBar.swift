@@ -47,8 +47,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             height: Globals.notchHeight
         )
 
-        notchWindow = OLoveBar.setupNotchWindow(frame: notchFrame, config: config, level: level + 4, .white) { state in
-            NotchContentView(state: state)
+        notchWindow = OLoveBar.setupNotchWindow(frame: notchFrame, config: config, level: level + 4, .black) { state in
+            NotchContentView(state: state, config: config)
+                .frame(width: .infinity, height: .infinity)
         }
         
         let expandedNotchFrame = NSRect(
