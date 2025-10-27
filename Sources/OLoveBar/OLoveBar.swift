@@ -11,15 +11,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     var mainWindow: OLoveBarWindow!
-    var notchWindow: OLoveBarWindow!
+    var notchWindow: NotchWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupWindow()
+        setupWindows()
         subscribeNotifications()
     }
 
     @MainActor
-    private func setupWindow() {
+    private func setupWindows() {
         let config = Config()
         
         let barHeight: CGFloat = config.barHeight
@@ -47,8 +47,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             height: Globals.notchHeight
         )
 
-        notchWindow = OLoveBar.setupWindow(frame: notchFrame, config: config, level: level + 4, .white) {
-            NotchContentView()
+        notchWindow = OLoveBar.setupNotchWindow(frame: notchFrame, config: config, level: level + 4, .white) { state in
+            NotchContentView(state: state)
         }
         
         let expandedNotchFrame = NSRect(
