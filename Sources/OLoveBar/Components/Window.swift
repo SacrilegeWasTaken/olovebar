@@ -5,41 +5,47 @@ class OLoveBarWindow: NSWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     
-    private var trackingArea: NSTrackingArea?
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
+    private var isExpanded = false
+    private nonisolated(unsafe) var isAnimating = false
     
     func setupHoverTracking(collapsedFrame: NSRect, expandedFrame: NSRect) {
         self.collapsedFrame = collapsedFrame
         self.expandedFrame = expandedFrame
         
-        trackingArea = NSTrackingArea(
-            rect: contentView?.bounds ?? .zero,
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
             options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self,
             userInfo: nil
         )
-        contentView?.addTrackingArea(trackingArea!)
+        contentView?.addTrackingArea(trackingArea)
     }
     
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
-        guard let expanded = expandedFrame else { return }
+        guard !isExpanded, !isAnimating, let expanded = expandedFrame else { return }
+        isExpanded = true
         animateFrame(to: expanded)
     }
     
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        guard let collapsed = collapsedFrame else { return }
+        guard isExpanded, !isAnimating, let collapsed = collapsedFrame else { return }
+        isExpanded = false
         animateFrame(to: collapsed)
     }
     
     private func animateFrame(to newFrame: NSRect) {
-        NSAnimationContext.runAnimationGroup { context in
+        isAnimating = true
+        NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            animator().setFrame(newFrame, display: true)
-        }
+            self.animator().setFrame(newFrame, display: false)
+        }, completionHandler: {
+            self.isAnimating = false
+        })
     }
 }
 

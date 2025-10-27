@@ -42,7 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let notchFrame = NSRect(
             x: Globals.screenWidth / 2 - Globals.notchWidth / 2 + 1,
-            y: screenFrame.height - Globals.notchHeight - 50, 
+            y: screenFrame.height - Globals.notchHeight, 
             width: Globals.notchWidth - 2, 
             height: Globals.notchHeight
         )
