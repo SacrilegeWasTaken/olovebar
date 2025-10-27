@@ -1,11 +1,6 @@
 import Cocoa
 import SwiftUI
 
-class BarWindow: NSWindow {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-}
-
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
     static func main() {
@@ -15,7 +10,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         app.run()
     }
 
-    var window: BarWindow!
+    var mainWindow: OLoveBarWindow!
+    var notchWindow: OLoveBarWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupWindow()
@@ -25,10 +21,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func setupWindow() {
         let config = Config()
-
+        
         let barHeight: CGFloat = config.barHeight
         let barHorizontalCut: CGFloat = config.barHorizontalCut
         let barVerticalCut: CGFloat = config.barVerticalCut
+        let level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
         guard let mainScreen = NSScreen.main else { return }
         let screenFrame = mainScreen.frame
         let frame = NSRect(
@@ -38,44 +35,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             height: barHeight - barVerticalCut
         )
 
-        window = BarWindow(
-            contentRect: frame,
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
+        mainWindow = OLoveBar.setupWindow(frame: frame, config: config, level: level) {
+            BarContentView(config: config)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+
+        let notchFrame = NSRect(
+            x: Globals.screenWidth / 2 - Globals.notchWidth / 2,
+            y: screenFrame.height, 
+            width: Globals.notchWidth, 
+            height: Globals.notchHeight
         )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
-        window.ignoresMouseEvents = false
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        window.hasShadow = false
-        window.orderBack(nil)
 
-        let container = NSView(frame: frame)
-        container.wantsLayer = true
-        container.layer?.backgroundColor = .clear
-        // ensure container's layer is not opaque so alpha can show through
-        container.layer?.isOpaque = false
-        container.layer?.cornerRadius = config.windowCornerRadius
-        container.layer?.masksToBounds = true
-
-        // Host a SwiftUI view inside AppKit
-        let hostingView = NSHostingView(rootView: BarContentView(config: config)
-                                            .frame(maxWidth: .infinity, maxHeight: .infinity))
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(hostingView)
-
-        // Constrain hosting view to container
-        NSLayoutConstraint.activate([
-            hostingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            hostingView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            hostingView.topAnchor.constraint(equalTo: container.topAnchor),
-            hostingView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-
-        window.contentView = container
-        window.makeKeyAndOrderFront(nil)
+        notchWindow = OLoveBar.setupWindow(frame: notchFrame, config: config, level: level, .white) {
+            NotchContentView()
+        }
     }
 
     private func subscribeNotifications() {
@@ -92,9 +66,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let runningApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
 
         if isAppFullscreen(pid: runningApp.processIdentifier) {
-            window.orderOut(nil)
+            mainWindow.orderOut(nil)
         } else {
-            window.orderFront(nil)
+            mainWindow.orderFront(nil)
         }
     }
 
