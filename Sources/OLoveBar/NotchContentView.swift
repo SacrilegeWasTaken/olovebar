@@ -11,14 +11,14 @@ struct NotchContentView: View {
                     HStack {
 
                     }
-                    .background(.yellow)
-                    .frame(maxWidth: .infinity, maxHeight: Globals.notchHeight)
+                    .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
+                    .background(.blue)
                     
                     HStack {
 
                     }
-                    .background(.pink)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.pink)
                 }
                 .background(.white)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

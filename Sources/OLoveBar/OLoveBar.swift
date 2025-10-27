@@ -53,10 +53,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         let expandedNotchFrame = NSRect(
-            x: notchFrame.minX - 150,
-            y: notchFrame.minY - 200,
-            width: notchFrame.width + 300,
-            height: notchFrame.height + 200
+            x: notchFrame.minX - 200,
+            y: notchFrame.minY - 100,
+            width: notchFrame.width + 400,
+            height: notchFrame.height + 100
         )
         
         notchWindow.setupHoverTracking(collapsedFrame: notchFrame, expandedFrame: expandedNotchFrame)
