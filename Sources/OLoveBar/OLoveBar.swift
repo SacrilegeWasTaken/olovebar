@@ -41,15 +41,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let notchFrame = NSRect(
-            x: Globals.screenWidth / 2 - Globals.notchWidth / 2,
-            y: screenFrame.height, 
-            width: Globals.notchWidth, 
+            x: Globals.screenWidth / 2 - Globals.notchWidth / 2 + 1,
+            y: screenFrame.height - Globals.notchHeight - 50, 
+            width: Globals.notchWidth - 2, 
             height: Globals.notchHeight
         )
 
-        notchWindow = OLoveBar.setupWindow(frame: notchFrame, config: config, level: level, .white) {
+        notchWindow = OLoveBar.setupWindow(frame: notchFrame, config: config, level: level + 4, .white) {
             NotchContentView()
         }
+        
+        let expandedNotchFrame = NSRect(
+            x: notchFrame.minX - 150,
+            y: notchFrame.minY - 200,
+            width: notchFrame.width + 300,
+            height: notchFrame.height + 200
+        )
+        
+        notchWindow.setupHoverTracking(collapsedFrame: notchFrame, expandedFrame: expandedNotchFrame)
     }
 
     private func subscribeNotifications() {
