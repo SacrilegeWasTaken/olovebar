@@ -51,7 +51,24 @@ class NotchWindow: NSWindow, WindowMarker {
             self.animator().setFrame(newFrame, display: false)
         }, completionHandler: {
             self.isAnimating = false
+            Task { @MainActor in
+                self.checkMousePosition()
+            }
         })
+    }
+    
+    private func checkMousePosition() {
+        guard let window = NSApp.windows.first(where: { $0 == self }) else { return }
+        let mouseLocation = NSEvent.mouseLocation
+        let isInside = window.frame.contains(mouseLocation)
+        
+        if isInside && !state.isExpanded, let expanded = expandedFrame {
+            state.isExpanded = true
+            animateFrame(to: expanded)
+        } else if !isInside && state.isExpanded, let collapsed = collapsedFrame {
+            state.isExpanded = false
+            animateFrame(to: collapsed)
+        }
     }
 }
 
