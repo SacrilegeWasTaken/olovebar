@@ -64,7 +64,16 @@ struct NotchContentView: View {
         .buttonStyle(.plain)
         .popover(isPresented: Binding(
             get: { showSubMenu && subMenuID == item.id },
-            set: { if !$0 { showSubMenu = false; isHoveringPopover = false } }
+            set: { newValue in
+                if !newValue {
+                    showSubMenu = false
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        isHoveringPopover = false
+                        state.isHoveringPopover = false
+                    }
+                }
+            }
         )) {
             submenuView(for: item)
                 .onHover { hovering in
@@ -84,9 +93,12 @@ struct NotchContentView: View {
                     } else {
                         Button(action: {
                             activeAppModel.performAction(for: subitem)
-                            showSubMenu = false
-                            isHoveringPopover = false
-                            state.isHoveringPopover = false
+                            Task { @MainActor in
+                                showSubMenu = false
+                                try? await Task.sleep(nanoseconds: 300_000_000)
+                                isHoveringPopover = false
+                                state.isHoveringPopover = false
+                            }
                         }) {
                             Text(subitem.title)
                                 .foregroundColor(.white)
