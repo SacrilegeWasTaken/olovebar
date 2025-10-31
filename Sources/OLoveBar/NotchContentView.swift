@@ -16,17 +16,25 @@ struct NotchContentView: View {
 
                     }
                     .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
-                    .background(.blue)
+                    .background(.black)
                     
+                    HStack(spacing: 4) {
+    
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.black)
+
                     HStack(spacing: 4) {
                         ForEach(activeAppModel.menuItems) { item in
                             menuItemView(item: item)
+                                .cornerRadius(config.widgetCornerRadius)
+                                .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
                         }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.pink)
+                    .frame(maxWidth: .infinity, maxHeight: 35)
+                    .background(.black)
                 }
-                .background(.white)
+                .background(.black)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity)
             }
