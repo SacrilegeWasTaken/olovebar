@@ -53,9 +53,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         let expandedNotchFrame = NSRect(
-            x: notchFrame.minX - 200,
+            x: notchFrame.minX - 250,
             y: notchFrame.minY - 100,
-            width: notchFrame.width + 400,
+            width: notchFrame.width + 500,
             height: notchFrame.height + 100
         )
         

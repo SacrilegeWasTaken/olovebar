@@ -4,7 +4,8 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.activeAppModel]))
 struct ActiveAppWidgetView: View {
-    @ObservedObject var model: ActiveAppModel
+    @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
+    @ObservedObject var aerospaceAppModel = GlobalModels.shared.aerospaceModel
     @ObservedObject var config: Config
 
     @State private var showMenuBar: Bool = false
@@ -18,19 +19,31 @@ struct ActiveAppWidgetView: View {
                 showMenuBar.toggle()
             }
         }) {
-            HStack(spacing: 4) {
-                Text(model.appName)
+            HStack(spacing: 8) {
+                Text(aerospaceAppModel.focused ?? "N")
+                    .foregroundColor(.white)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .id(aerospaceAppModel.focused)
+                    .transition(.opacity)
+
+                Image(systemName: "chevron.right")
                     .foregroundColor(.white)
                     .font(.system(size: 12))
                     .lineLimit(1)
                     .fixedSize()
 
-                Image(systemName: showMenuBar ? "chevron.down" : "chevron.up")
+                Text(activeAppModel.appName)
                     .foregroundColor(.white)
                     .font(.system(size: 12))
                     .lineLimit(1)
                     .fixedSize()
+                    .id(activeAppModel.appName)
+                    .transition(.opacity)
             }
+            .animation(.easeInOut(duration: 0.15), value: aerospaceAppModel.focused)
+            .animation(.easeInOut(duration: 0.15), value: activeAppModel.appName)
             .padding(.horizontal, 20)
             .frame(height: config.widgetHeight)
             .frame(minWidth: config.activeAppWidth)
@@ -44,61 +57,5 @@ struct ActiveAppWidgetView: View {
             .contentShape(Rectangle()) 
         }
         .buttonStyle(.plain)
-        .popover(isPresented: $showMenuBar) {
-            HStack(spacing: 8) {
-                ForEach(Array(model.menuItems.enumerated()), id: \.element.id) { index, item in
-                    menuItemView(item: item, index: index)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-        }
-    }
-
-
-    @ViewBuilder
-    private func menuItemView(item: MenuItemData, index: Int) -> some View {
-        Button(item.title) {
-            showSubMenu = true
-            subMenuID = item.id
-        }
-        .fixedSize()
-        .popover(isPresented: Binding(
-            get: { showSubMenu && subMenuID == item.id },
-            set: { if !$0 { showSubMenu = false } }
-        )) {
-            submenuView(for: item)
-        }
-        .buttonStyle(.plain)
-    }
-        
-
-    @ViewBuilder
-    private func submenuView(for item: MenuItemData) -> some View {
-        if let submenu = item.submenu {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(submenu) { subitem in
-                    if subitem.isSeparator {
-                        Divider().padding(4)
-                    } else {
-                        Button(action: {
-                            model.performAction(for: subitem)
-                            showSubMenu = false
-                            showMenuBar = false
-                        }) {
-                            Text(subitem.title)
-                                .foregroundColor(.white)
-                                .font(.system(size: 12))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .frame(minWidth: 200)
-            .padding(.vertical, 4)
-        }
     }
 }

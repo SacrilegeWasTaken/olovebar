@@ -4,7 +4,9 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject, @unchecked Sendable {
-    public init() {}
+    public init() {
+        startTimer(interval: 0.15)
+    }
 
     @Published public var workspaces: [String] = []
     @Published public var focused: String?

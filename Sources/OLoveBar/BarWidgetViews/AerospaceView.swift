@@ -33,7 +33,6 @@ struct AerospaceWidgetView: View {
         .background(.clear)
         .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .frame(height: config.widgetHeight)
-        .onAppear { model.startTimer(interval: 0.1) }
         }
     }
 }
