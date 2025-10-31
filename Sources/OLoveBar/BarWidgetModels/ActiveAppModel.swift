@@ -110,6 +110,14 @@ public class ActiveAppModel: ObservableObject {
         guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
               let title = titleValue as? String else { return nil }
         
+        var keyEquivValue: AnyObject?
+        let keyEquiv = (AXUIElementCopyAttributeValue(element, "AXMenuItemCmdChar" as CFString, &keyEquivValue) == .success) ? (keyEquivValue as? String ?? "") : ""
+        
+        var enabledValue: AnyObject?
+        let isEnabled = (AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue) == .success) ? (enabledValue as? Bool ?? true) : true
+        
+        let isSeparator = title.isEmpty || title == "-"
+        
         var childrenValue: AnyObject?
         var submenu: [MenuItemData]? = nil
         if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
@@ -127,9 +135,9 @@ public class ActiveAppModel: ObservableObject {
             title: title,
             submenu: submenu,
             action: nil,
-            keyEquivalent: "",
-            isEnabled: true,
-            isSeparator: false,
+            keyEquivalent: keyEquiv,
+            isEnabled: isEnabled,
+            isSeparator: isSeparator,
             element: element
         )
     }

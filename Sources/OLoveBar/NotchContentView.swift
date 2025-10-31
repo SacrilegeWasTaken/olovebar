@@ -89,30 +89,65 @@ struct NotchContentView: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(submenu) { subitem in
                     if subitem.isSeparator {
-                        Divider().padding(4)
+                        Divider()
+                            .padding(.vertical, 4)
                     } else {
-                        Button(action: {
-                            activeAppModel.performAction(for: subitem)
-                            Task { @MainActor in
-                                showSubMenu = false
-                                try? await Task.sleep(nanoseconds: 300_000_000)
-                                isHoveringPopover = false
-                                state.isHoveringPopover = false
+                        SubmenuItemView(
+                            item: subitem,
+                            action: {
+                                activeAppModel.performAction(for: subitem)
+                                Task { @MainActor in
+                                    showSubMenu = false
+                                    try? await Task.sleep(nanoseconds: 300_000_000)
+                                    isHoveringPopover = false
+                                    state.isHoveringPopover = false
+                                }
                             }
-                        }) {
-                            Text(subitem.title)
-                                .foregroundColor(.white)
-                                .font(.system(size: 12))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.plain)
+                        )
                     }
                 }
             }
             .frame(minWidth: 200)
             .padding(.vertical, 4)
+            .background(.ultraThinMaterial)
+        }
+    }
+}
+
+struct SubmenuItemView: View {
+    let item: MenuItemData
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Text(item.title)
+                    .foregroundColor(item.isEnabled ? .white : .gray)
+                    .font(.system(size: 13))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                if !item.keyEquivalent.isEmpty {
+                    Text(item.keyEquivalent)
+                        .foregroundColor(.gray)
+                        .font(.system(size: 11))
+                }
+                
+                if item.submenu != nil {
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 10))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isHovered ? Color.accentColor.opacity(0.8) : Color.clear)
+            .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!item.isEnabled)
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
 }
