@@ -7,6 +7,7 @@ struct NotchContentView: View {
     @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
     @State private var showSubMenu: Bool = false
     @State private var subMenuID: UUID?
+    @State private var isHoveringPopover: Bool = false
 
     var body: some View {
         Group {
@@ -63,9 +64,13 @@ struct NotchContentView: View {
         .buttonStyle(.plain)
         .popover(isPresented: Binding(
             get: { showSubMenu && subMenuID == item.id },
-            set: { if !$0 { showSubMenu = false } }
+            set: { if !$0 { showSubMenu = false; isHoveringPopover = false } }
         )) {
             submenuView(for: item)
+                .onHover { hovering in
+                    isHoveringPopover = hovering
+                    state.isHoveringPopover = hovering
+                }
         }
     }
     
@@ -80,6 +85,8 @@ struct NotchContentView: View {
                         Button(action: {
                             activeAppModel.performAction(for: subitem)
                             showSubMenu = false
+                            isHoveringPopover = false
+                            state.isHoveringPopover = false
                         }) {
                             Text(subitem.title)
                                 .foregroundColor(.white)

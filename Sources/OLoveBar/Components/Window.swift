@@ -5,6 +5,7 @@ protocol WindowMarker: NSWindow {}
 
 class NotchWindowState: ObservableObject {
     @Published var isExpanded = false
+    @Published var isHoveringPopover = false
 }
 
 class NotchWindow: NSWindow, WindowMarker {
@@ -15,6 +16,7 @@ class NotchWindow: NSWindow, WindowMarker {
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
     private nonisolated(unsafe) var isAnimating = false
+    private var collapseTimer: Timer?
     
     func setupHoverTracking(collapsedFrame: NSRect, expandedFrame: NSRect) {
         self.collapsedFrame = collapsedFrame
@@ -31,6 +33,7 @@ class NotchWindow: NSWindow, WindowMarker {
     
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
+        collapseTimer?.invalidate()
         guard !state.isExpanded, !isAnimating, let expanded = expandedFrame else { return }
         state.isExpanded = true
         animateFrame(to: expanded)
@@ -38,9 +41,18 @@ class NotchWindow: NSWindow, WindowMarker {
     
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        guard state.isExpanded, !isAnimating, let collapsed = collapsedFrame else { return }
-        state.isExpanded = false
-        animateFrame(to: collapsed)
+        guard state.isExpanded, !isAnimating else { return }
+        
+        collapseTimer?.invalidate()
+        collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            Task { @MainActor in
+                if !self.state.isHoveringPopover, let collapsed = self.collapsedFrame {
+                    self.state.isExpanded = false
+                    self.animateFrame(to: collapsed)
+                }
+            }
+        }
     }
     
     private func animateFrame(to newFrame: NSRect) {
@@ -65,7 +77,7 @@ class NotchWindow: NSWindow, WindowMarker {
         if isInside && !state.isExpanded, let expanded = expandedFrame {
             state.isExpanded = true
             animateFrame(to: expanded)
-        } else if !isInside && state.isExpanded, let collapsed = collapsedFrame {
+        } else if !isInside && state.isExpanded && !state.isHoveringPopover, let collapsed = collapsedFrame {
             state.isExpanded = false
             animateFrame(to: collapsed)
         }
