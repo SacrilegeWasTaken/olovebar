@@ -174,7 +174,7 @@ func setupNotchWindow<Content: View>(
 
         let container = NSView(frame: frame)
         container.wantsLayer = true
-        container.layer?.backgroundColor = color
+        container.layer?.backgroundColor = .clear
         container.layer?.isOpaque = false
         container.layer?.cornerRadius = config.windowCornerRadius
         container.layer?.masksToBounds = true

@@ -9,30 +9,27 @@ struct NotchContentView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Group {
-                if state.isExpanded {
-                    VStack(spacing: 0) {
-                        HStack {
-                        }
-                        .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
-                        .background(.black)
-                        
-                        HStack(spacing: 4) {
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(.black)
-
-                        HStack(spacing: 4) {
-                            MenuWidgetView(config: config)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: 35)
-                        .background(.black)
-                    }
-                    .background(.black)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .transition(.opacity)
+            VStack(spacing: 0) {
+                HStack {
                 }
+                .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
+                .background(.black)
+                
+                HStack(spacing: 4) {
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.black)
+
+                HStack(spacing: 4) {
+                    MenuWidgetView(config: config)
+                }
+                .frame(maxWidth: .infinity, maxHeight: 35)
+                .background(.black)
             }
+            .background(.black)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .opacity(state.isExpanded ? 1 : 0)
+            .animation(.easeInOut(duration: 0.3), value: state.isExpanded)
         }
     }
 }

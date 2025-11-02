@@ -42,9 +42,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let notchFrame = NSRect(
             x: Globals.screenWidth / 2 - Globals.notchWidth / 2 + 1,
-            y: screenFrame.height - Globals.notchHeight, 
+            y: screenFrame.height - Globals.notchHeight + 5, 
             width: Globals.notchWidth - 2, 
-            height: Globals.notchHeight
+            height: Globals.notchHeight - 5
         )
 
         notchWindow = OLoveBar.setupNotchWindow(frame: notchFrame, config: config, level: level + 4, .black) { state in
