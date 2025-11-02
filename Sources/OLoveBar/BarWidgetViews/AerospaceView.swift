@@ -11,14 +11,14 @@ struct AerospaceWidgetView: View {
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
             cornerRadius: config.widgetCornerRadius
         ) {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             let _ = debug("Updating UI. Focused: \(String(describing: model.focused))")
             ForEach(model.workspaces) { workspace in
                 Button(action: { model.focus(workspace.id) }) {
                     HStack(spacing: 4) {
                         // Workspace number with fixed width to prevent disappearing
                         Text(workspace.id)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 12, weight: workspace.id == model.focused ? .semibold : .medium))
                             .foregroundColor(.white)
                             .frame(minWidth: 12, alignment: .center)
                             .fixedSize()
@@ -31,6 +31,7 @@ struct AerospaceWidgetView: View {
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 16, height: 16)
                                     .clipped()
+                                    .opacity(workspace.id == model.focused ? 1.0 : 0.75)
                             }
                         }
                     }
@@ -38,17 +39,32 @@ struct AerospaceWidgetView: View {
                     .padding(.vertical, 4)
                     .frame(height: config.widgetHeight)
                     .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.clear,
-                                Color.gray.opacity(workspace.id == model.focused ? 0.7 : 0.15)
-                            ]),
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .animation(.easeInOut(duration: 0.1), value: model.focused)
+                        ZStack {
+                            // Base gradient for all
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.gray.opacity(0.1),
+                                    Color.gray.opacity(0.2)
+                                ]),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                            
+                            // Extra glow for active workspace
+                            if workspace.id == model.focused {
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.purple.opacity(0.3),
+                                        Color.purple.opacity(0.5),
+                                        Color.blue.opacity(0.4)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            }
+                        }
                     )
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius * 0.7, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
