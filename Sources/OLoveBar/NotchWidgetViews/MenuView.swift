@@ -10,7 +10,6 @@ fileprivate class MenuStateManager: ObservableObject {
     @ObservedObject     var notchState:     NotchWindowState = .shared
     @Published          var hoveredPath:    [UUID] = []
     private             var menuCloseTask:  Task<Void, Never>?
-    private             var logTimer:       Timer?
 
 
     func isInPath(_ itemID: UUID) -> Bool {
@@ -80,7 +79,9 @@ fileprivate struct MenuButtonView: View {
 
     var body: some View {
         Button(action: {
-            if item.submenu == nil {
+            if item.submenu != nil {
+                showSubmenu()
+            } else {
                 activeAppModel.performAction(for: item)
                 menuState.resetPath()
             }
@@ -108,6 +109,25 @@ fileprivate struct MenuButtonView: View {
             }
         }
     }
+
+
+    private func showSubmenu() {
+        guard let submenu = item.submenu, !submenu.isEmpty else { return }
+        
+        let menu = NSMenuHosting.menu {
+            SubMenuView(item: item, config: config)
+                .background(Color.black.opacity(0.8))
+                .cornerRadius(config.widgetCornerRadius)
+        }
+        
+        // Получаем notchWindow и конвертируем координаты
+        if let window = NSApp.windows.first(where: { $0 is NotchWindow }) as? NotchWindow,
+        let contentView = window.contentView {
+            let mouseLocation = window.mouseLocationOutsideOfEventStream
+            menu.popUp(positioning: nil, at: mouseLocation, in: contentView)
+        }
+    }
+
 }
 
 

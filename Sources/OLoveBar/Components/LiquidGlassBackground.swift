@@ -6,6 +6,7 @@
 import SwiftUI
 import AppKit
 
+
 /// All 20 available liquid‑glass variants.
 /// Apple does not publicly describe how each value looks so experiment and pick the one you like!
 public enum GlassVariant: Int, CaseIterable, Identifiable, Sendable {
