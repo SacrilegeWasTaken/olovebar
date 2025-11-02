@@ -56,7 +56,7 @@ struct BatteryWidgetView: View {
                         )
                         
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(batteryColor.opacity(0.6))
+                            .fill(.white.opacity(0.5))
                             .frame(width: 1.5, height: 4)
                             .offset(x: 12)
                         
