@@ -30,6 +30,8 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] Migration from timers to system notifications
 - [x] Good performance
 - [x] Power widget like native
+- [x] Notch fancy animations
+- [x] No notch background while expanded
 
 ### Planned
 
