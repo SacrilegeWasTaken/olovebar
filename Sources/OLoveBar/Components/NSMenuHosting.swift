@@ -31,6 +31,10 @@ final class NSMenuHosting {
         for item in items {
             if item.isSeparator {
                 menu.addItem(.separator())
+            } else if let submenu = item.submenu, !submenu.isEmpty {
+                let menuItem = NSMenuItem(title: item.title, action: nil, keyEquivalent: "")
+                menuItem.submenu = self.menu(items: submenu, onAction: onAction)
+                menu.addItem(menuItem)
             } else {
                 let target = MenuItemTarget(item: item, action: onAction)
                 let menuItem = NSMenuItem(title: item.title, action: #selector(MenuItemTarget.performAction(_:)), keyEquivalent: "")
