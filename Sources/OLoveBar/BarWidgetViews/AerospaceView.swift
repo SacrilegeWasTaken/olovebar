@@ -14,12 +14,14 @@ struct AerospaceWidgetView: View {
         HStack(spacing: 4) {
             let _ = debug("Updating UI. Focused: \(String(describing: model.focused))")
             ForEach(model.workspaces) { workspace in
-                Button(action: { withAnimation { model.focus(workspace.id) } }) {
+                Button(action: { model.focus(workspace.id) }) {
                     HStack(spacing: 4) {
-                        // Workspace number
+                        // Workspace number with fixed width to prevent disappearing
                         Text(workspace.id)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(workspace.id == self.model.focused ? .purple : .white)
+                            .foregroundColor(workspace.id == model.focused ? .purple : .white)
+                            .frame(minWidth: 12, alignment: .center)
+                            .fixedSize()
                         
                         // App icons
                         ForEach(workspace.apps) { app in
@@ -28,10 +30,12 @@ struct AerospaceWidgetView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 16, height: 16)
+                                    .clipped()
                             }
                         }
                     }
                     .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                     .frame(height: config.widgetHeight)
                     .background(.clear)
                     
@@ -39,7 +43,6 @@ struct AerospaceWidgetView: View {
                 .buttonStyle(.plain)
                 .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
                 .background(.clear)
-                .animation(.interpolatingSpring(duration: 0.1), value: model.focused)
             }
         }
         .padding(.horizontal, 4)
