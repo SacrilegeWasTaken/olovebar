@@ -19,7 +19,7 @@ struct AerospaceWidgetView: View {
                         // Workspace number with fixed width to prevent disappearing
                         Text(workspace.id)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(workspace.id == model.focused ? .purple : .white)
+                            .foregroundColor(.white)
                             .frame(minWidth: 12, alignment: .center)
                             .fixedSize()
                         
@@ -41,7 +41,7 @@ struct AerospaceWidgetView: View {
                         LinearGradient(
                             gradient: Gradient(colors: [
                                 Color.clear,
-                                Color.gray.opacity(workspace.id == model.focused ? 0.3 : 0.15)
+                                Color.gray.opacity(workspace.id == model.focused ? 0.7 : 0.15)
                             ]),
                             startPoint: .leading,
                             endPoint: .trailing
