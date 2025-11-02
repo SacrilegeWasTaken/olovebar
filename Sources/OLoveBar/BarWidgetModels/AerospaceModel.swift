@@ -17,13 +17,14 @@ public struct AppInfo: Hashable, Identifiable {
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject, @unchecked Sendable {
     public init() {
-        startTimer(interval: 0.15)
+        startTimer(interval: 0.1)
     }
 
     @Published public var workspaces: [WorkspaceInfo] = []
     @Published public var focused: String?
 
     nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
 
     public func startTimer(interval: TimeInterval) {
         timer?.invalidate()
@@ -98,10 +99,18 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
     
     private func getAppIcon(bundleId: String) -> NSImage? {
+        // Check cache first
+        if let cachedIcon = iconCache[bundleId] {
+            return cachedIcon
+        }
+        
+        // Get icon and cache it
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
             return nil
         }
-        return NSWorkspace.shared.icon(forFile: appURL.path)
+        let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+        iconCache[bundleId] = icon
+        return icon
     }
 
     public func focus(_ id: String) {

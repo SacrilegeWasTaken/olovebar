@@ -46,9 +46,9 @@ struct AerospaceWidgetView: View {
                             startPoint: .leading,
                             endPoint: .trailing
                         )
+                        .animation(.easeInOut(duration: 0.1), value: model.focused)
                     )
                     .clipShape(Capsule())
-                    
                 }
                 .buttonStyle(.plain)
             }
