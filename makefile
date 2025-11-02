@@ -1,4 +1,4 @@
-.PHONY: default setup build run release install uninstall
+.PHONY: default setup build run release install uninstall push
 
 default: run
 

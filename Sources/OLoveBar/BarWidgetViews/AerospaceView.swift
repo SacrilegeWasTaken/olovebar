@@ -54,8 +54,10 @@ struct AerospaceWidgetView: View {
                             if workspace.id == model.focused {
                                 LinearGradient(
                                     gradient: Gradient(colors: [
-                                        Color.purple.opacity(0.3),
-                                        Color.purple.opacity(0.5),
+                                        Color.clear,
+                                        Color.clear,
+                                        Color.purple.opacity(0.2),
+                                        Color.purple.opacity(0.4),
                                         Color.blue.opacity(0.4)
                                     ]),
                                     startPoint: .leading,
