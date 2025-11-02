@@ -43,7 +43,7 @@ struct AerospaceWidgetView: View {
                             // Base gradient for all
                             LinearGradient(
                                 gradient: Gradient(colors: [
-                                    Color.gray.opacity(0.1),
+                                    Color.clear,
                                     Color.gray.opacity(0.2)
                                 ]),
                                 startPoint: .leading,
@@ -64,12 +64,11 @@ struct AerospaceWidgetView: View {
                             }
                         }
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius * 0.7, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 4)
         .background(.clear)
         .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
         .frame(height: config.widgetHeight)
