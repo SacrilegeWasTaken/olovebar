@@ -114,20 +114,16 @@ fileprivate struct MenuButtonView: View {
     private func showSubmenu() {
         guard let submenu = item.submenu, !submenu.isEmpty else { return }
         
-        let menu = NSMenuHosting.menu {
-            SubMenuView(item: item, config: config)
-                .background(Color.black.opacity(0.8))
-                .cornerRadius(config.widgetCornerRadius)
+        let menu = NSMenuHosting.menu(items: submenu) { [activeAppModel] subitem in
+            activeAppModel.performAction(for: subitem)
         }
         
-        // Получаем notchWindow и конвертируем координаты
         if let window = NSApp.windows.first(where: { $0 is NotchWindow }) as? NotchWindow,
         let contentView = window.contentView {
             let mouseLocation = window.mouseLocationOutsideOfEventStream
             menu.popUp(positioning: nil, at: mouseLocation, in: contentView)
         }
     }
-
 }
 
 

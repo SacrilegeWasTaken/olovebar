@@ -25,11 +25,36 @@ final class NSMenuHosting {
 
     
     /// Создает NSMenu с SwiftUI View
-    static func menu<Content: View>(
-        @ViewBuilder content: () -> Content
-    ) -> NSMenu {
+    static func menu(items: [MenuItemData], onAction: @escaping (MenuItemData) -> Void) -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(menuItem(content: content))
+        
+        for item in items {
+            if item.isSeparator {
+                menu.addItem(.separator())
+            } else {
+                let target = MenuItemTarget(item: item, action: onAction)
+                let menuItem = NSMenuItem(title: item.title, action: #selector(MenuItemTarget.performAction(_:)), keyEquivalent: "")
+                menuItem.target = target
+                menuItem.representedObject = target
+                menu.addItem(menuItem)
+            }
+        }
+        
         return menu
+    }
+}
+
+
+private class MenuItemTarget: NSObject {
+    let item: MenuItemData
+    let action: (MenuItemData) -> Void
+    
+    init(item: MenuItemData, action: @escaping (MenuItemData) -> Void) {
+        self.item = item
+        self.action = action
+    }
+    
+    @objc func performAction(_ sender: NSMenuItem) {
+        action(item)
     }
 }
