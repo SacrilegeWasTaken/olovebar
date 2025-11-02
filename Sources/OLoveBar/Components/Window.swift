@@ -3,16 +3,21 @@ import SwiftUI
 
 protocol WindowMarker: NSWindow {}
 
+
+@MainActor
 class NotchWindowState: ObservableObject {
+    static let shared = NotchWindowState()
+
     @Published var isExpanded = false
     @Published var isHoveringPopover = false
 }
+
 
 class NotchWindow: NSWindow, WindowMarker {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     
-    let state = NotchWindowState()
+    let state = NotchWindowState.shared
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
     private nonisolated(unsafe) var isAnimating = false

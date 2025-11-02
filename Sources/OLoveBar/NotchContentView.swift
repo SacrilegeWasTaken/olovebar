@@ -1,56 +1,117 @@
 import SwiftUI
- 
-struct NotchContentView: View {
-    @ObservedObject var state: NotchWindowState
-    @StateObject var config: Config
+import MacroAPI
 
+
+@MainActor
+@LogFunctions(.OLoveBar)
+class MenuStateManager: ObservableObject {
+    static var shared: MenuStateManager = MenuStateManager()
+
+    @ObservedObject var notchState: NotchWindowState = .shared
+    
+    @Published var hoveredPath: [UUID] = []
+
+    private var menuCloseTask: Task<Void, Never>?
+
+    func isInPath(_ itemID: UUID) -> Bool {
+        hoveredPath.contains(where: { $0 == itemID })
+    }
+
+    func addToPath(_ itemID: UUID) {
+        hoveredPath.append(itemID)
+    }
+
+    func removeFromPath(_ itemID: UUID) {
+        hoveredPath.removeAll { $0 == itemID }
+    }
+
+    func resetPath() {
+        hoveredPath = []
+    }
+
+    func isFirst(_ itemID: UUID) -> Bool {
+        hoveredPath.first == itemID
+    }
+
+    /// ### Setting schedule to reset menu items path
+    /// `Task.cancel()` not stopping already started `Task.sleep()` immediately, so we're checking `Task.isCancelled`.
+    func setMenuCloseTaskSchedule() {
+        menuCloseTask?.cancel()
+        menuCloseTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(0.2))
+            guard let self = self, !Task.isCancelled else { return }
+            self.resetPath()
+        }
+    }
+
+
+    func cancelMenuCloseTask() {
+        menuCloseTask?.cancel()
+        menuCloseTask = nil
+    }
+}
+
+
+struct NotchContentView: View {
+    @StateObject var config: Config
+    @ObservedObject var state: NotchWindowState
     @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
-    @State private var showSubMenu: Bool = false
-    @State private var subMenuID: UUID?
-    @State private var isHoveringPopover: Bool = false
+    @ObservedObject var menuState = MenuStateManager.shared
 
     var body: some View {
-        Group {
-            if state.isExpanded {
-                VStack(spacing: 0) {
-                    HStack {
-
-                    }
-                    .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
-                    .background(.black)
-                    
-                    HStack(spacing: 4) {
-    
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.black)
-
-                    HStack(spacing: 4) {
-                        ForEach(activeAppModel.menuItems) { item in
-                            menuItemView(item: item)
-                                .cornerRadius(config.widgetCornerRadius)
-                                .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
+        ZStack(alignment: .topLeading) {
+            Group {
+                if state.isExpanded {
+                    VStack(spacing: 0) {
+                        HStack {
                         }
+                        .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
+                        .background(.black)
+                        
+                        HStack(spacing: 4) {
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.black)
+
+                        HStack(spacing: 4) {
+                            ForEach(activeAppModel.menuItems) { item in
+                                MenuButtonView(
+                                    item: item,
+                                    config: config
+                                )
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: 35)
+                        .background(.black)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: 35)
                     .background(.black)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
                 }
-                .background(.black)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: state.isExpanded)
     }
+}
+
+struct MenuButtonView: View {
+    let item: MenuItemData
+    let config: Config
+
+
+    @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
+    @ObservedObject var menuState = MenuStateManager.shared
     
-    @ViewBuilder
-    private func menuItemView(item: MenuItemData) -> some View {
+
+    private var isHighlighted: Bool {
+        menuState.isFirst(item.id) // && menuState.notchState.isExpanded
+    }
+
+
+    var body: some View {
         Button(action: {
-            if item.submenu != nil {
-                showSubMenu = true
-                subMenuID = item.id
-            } else {
+            if item.submenu == nil {
                 activeAppModel.performAction(for: item)
+                menuState.resetPath()
             }
         }) {
             Text(item.title)
@@ -58,96 +119,68 @@ struct NotchContentView: View {
                 .font(.system(size: 12))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(.ultraThinMaterial)
-                .cornerRadius(8)
+                .background(isHighlighted ? Color.accentColor : Color.clear)
+                .cornerRadius(config.widgetCornerRadius)
         }
         .buttonStyle(.plain)
-        .popover(isPresented: Binding(
-            get: { showSubMenu && subMenuID == item.id },
-            set: { newValue in
-                if !newValue {
-                    showSubMenu = false
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        isHoveringPopover = false
-                        state.isHoveringPopover = false
-                    }
+        .animation(.easeInOut(duration: 0.1), value: isHighlighted)
+        .onHover { hovering in
+            // guard menuState.notchState.isExpanded else { return }
+            if hovering {
+                menuState.cancelMenuCloseTask()
+                if menuState.hoveredPath.first != item.id {
+                    menuState.resetPath()
+                    menuState.addToPath(item.id)
                 }
+            } else {
+                menuState.setMenuCloseTaskSchedule()
             }
-        )) {
-            submenuView(for: item)
-                .onHover { hovering in
-                    isHoveringPopover = hovering
-                    state.isHoveringPopover = hovering
-                }
         }
+        // .popover(isPresented: .constant(isHighlighted && item.submenu != nil)) {
+        //     SubMenuView(item: item, config: config)
+        //         .onHover { hovering in
+        //             if hovering {
+        //                 menuState.cancelMenuCloseTask()
+        //             } else {
+        //                 menuState.setMenuCloseTaskSchedule()
+        //             }
+        //         }
+        // }
     }
-    
+}
+
+
+struct SubMenuView: View {
+    let item: MenuItemData
+    let config: Config
+
+    @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
+    @ObservedObject var menuState = MenuStateManager.shared
+
     @ViewBuilder
-    private func submenuView(for item: MenuItemData) -> some View {
+    var body: some View {
         if let submenu = item.submenu {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(submenu) { subitem in
                     if subitem.isSeparator {
-                        Divider()
-                            .padding(.vertical, 4)
+                        Divider().padding(4)
                     } else {
-                        SubmenuItemView(
-                            item: subitem,
-                            action: {
-                                activeAppModel.performAction(for: subitem)
-                                Task { @MainActor in
-                                    showSubMenu = false
-                                    try? await Task.sleep(nanoseconds: 300_000_000)
-                                    isHoveringPopover = false
-                                    state.isHoveringPopover = false
-                                }
-                            }
-                        )
+                        Button(action: {
+                            activeAppModel.performAction(for: subitem)
+                        }) {
+                            Text(subitem.title)
+                                .foregroundColor(.white)
+                                .font(.system(size: 12))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
             .frame(minWidth: 200)
             .padding(.vertical, 4)
-            .background(.ultraThinMaterial)
-        }
-    }
-}
-
-struct SubmenuItemView: View {
-    let item: MenuItemData
-    let action: () -> Void
-    @State private var isHovered = false
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Text(item.title)
-                    .foregroundColor(item.isEnabled ? .white : .gray)
-                    .font(.system(size: 13))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                if !item.keyEquivalent.isEmpty {
-                    Text(item.keyEquivalent)
-                        .foregroundColor(.gray)
-                        .font(.system(size: 11))
-                }
-                
-                if item.submenu != nil {
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 10))
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isHovered ? Color.accentColor.opacity(0.8) : Color.clear)
-            .cornerRadius(4)
-        }
-        .buttonStyle(.plain)
-        .disabled(!item.isEnabled)
-        .onHover { hovering in
-            isHovered = hovering
         }
     }
 }

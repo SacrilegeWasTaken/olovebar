@@ -48,7 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         notchWindow = OLoveBar.setupNotchWindow(frame: notchFrame, config: config, level: level + 4, .black) { state in
-            NotchContentView(state: state, config: config)
+            NotchContentView(config: config, state: state)
                 .frame(width: .infinity, height: .infinity)
         }
         
