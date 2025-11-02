@@ -17,7 +17,7 @@ public struct AppInfo: Hashable, Identifiable {
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject, @unchecked Sendable {
     public init() {
-        startTimer(interval: 0.1)
+        startTimer(interval: 0.2)
     }
 
     @Published public var workspaces: [WorkspaceInfo] = []
