@@ -9,7 +9,12 @@ class NotchWindowState: ObservableObject {
     static let shared = NotchWindowState()
 
     @Published var isExpanded = false
+    @Published var isAnimating = false
     @Published var isHoveringPopover = false
+
+    var isFullyExpanded: Bool {
+        isExpanded && !isAnimating
+    }
 }
 
 
@@ -61,6 +66,7 @@ class NotchWindow: NSWindow, WindowMarker {
     }
     
     private func animateFrame(to newFrame: NSRect) {
+        state.isAnimating = true 
         isAnimating = true
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
@@ -69,6 +75,7 @@ class NotchWindow: NSWindow, WindowMarker {
         }, completionHandler: {
             self.isAnimating = false
             Task { @MainActor in
+                self.state.isAnimating = false
                 self.checkMousePosition()
             }
         })

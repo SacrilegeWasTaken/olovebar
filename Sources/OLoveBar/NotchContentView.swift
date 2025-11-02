@@ -7,11 +7,16 @@ import MacroAPI
 class MenuStateManager: ObservableObject {
     static var shared: MenuStateManager = MenuStateManager()
 
+
     @ObservedObject var notchState: NotchWindowState = .shared
-    
+
+
     @Published var hoveredPath: [UUID] = []
 
+
     private var menuCloseTask: Task<Void, Never>?
+    private var logTimer: Timer?
+
 
     func isInPath(_ itemID: UUID) -> Bool {
         hoveredPath.contains(where: { $0 == itemID })
@@ -38,7 +43,7 @@ class MenuStateManager: ObservableObject {
     func setMenuCloseTaskSchedule() {
         menuCloseTask?.cancel()
         menuCloseTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(0.2))
+            try? await Task.sleep(for: .seconds(0.1))
             guard let self = self, !Task.isCancelled else { return }
             self.resetPath()
         }
@@ -103,7 +108,7 @@ struct MenuButtonView: View {
     
 
     private var isHighlighted: Bool {
-        menuState.isFirst(item.id) // && menuState.notchState.isExpanded
+        menuState.isFirst(item.id) && menuState.notchState.isFullyExpanded
     }
 
 
@@ -125,7 +130,7 @@ struct MenuButtonView: View {
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.1), value: isHighlighted)
         .onHover { hovering in
-            // guard menuState.notchState.isExpanded else { return }
+            guard menuState.notchState.isFullyExpanded else { return }
             if hovering {
                 menuState.cancelMenuCloseTask()
                 if menuState.hoveredPath.first != item.id {
