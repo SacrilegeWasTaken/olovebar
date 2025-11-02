@@ -9,3 +9,11 @@ DerivedData/
 .vscode/
 /.vscode
 Package.resolved
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+uv.lock
+.python-version

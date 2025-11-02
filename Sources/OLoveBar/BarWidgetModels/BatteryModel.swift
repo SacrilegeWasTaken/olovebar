@@ -3,6 +3,10 @@ import Foundation
 import IOKit.ps
 import MacroAPI
 
+
+
+
+
 @MainActor
 @LogFunctions(.Widgets([.batteryModel]))
 public final class BatteryModel: ObservableObject {
