@@ -1,5 +1,10 @@
 # Olovebar
 
+![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-✓-green.svg)
+
 **Olovebar** is a Swift-based, fully customizable menu bar inspired by Apple's **Liquid Glass** design philosophy.
 
 All widgets are clickable and behave like native macOS menu bar widgets. You can customize the glass style of the menu bar via the **config menu** (right-click on the Apple logo widget), including:
@@ -22,16 +27,18 @@ Left-click on the Apple logo to toggle the background style between **Glass** an
 ![Transparent Theme](Resources/transparent_theme.png)
 ![Two-Layer Theme](Resources/two_layer_theme.png)
 
-### Active App Widget
+### Notch Widget
 
-The Active App widget is fully functional and provides all the benefits of the default macOS menu bar:
+![Notch Widget](Resources/notch.png)
 
-![Active App Widget](Resources/activeapp.png)
+### Volume Control
+
+![Volume Widget](Resources/volume.png)
 
 ### Settings Menu
 
-![Window Settings](Resources/window_settings.png)
-![Widget Settings](Resources/widget_settings.png)
+![Settings](Resources/settings.png)
+![Window Settings](Resources/windowsettings.png)
 
 ---
 
@@ -46,9 +53,9 @@ git clone https://github.com/SacrilegeWasTaken/olovebar.git
 ```
 3. Build the binary via swift
 ```sh
-swift build
+swift build -c release
 ```
 4. Run the binary
 ```sh
-./.build/arm64-apple-macosx/debug/olovebar
+./.build/release/olovebar
 ```
