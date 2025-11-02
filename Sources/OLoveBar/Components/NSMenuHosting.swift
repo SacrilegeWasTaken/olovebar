@@ -39,13 +39,14 @@ final class NSMenuHosting {
                 let target = MenuItemTarget(item: item, action: onAction)
                 let menuItem = NSMenuItem(title: item.title, action: #selector(MenuItemTarget.performAction(_:)), keyEquivalent: "")
                 menuItem.target = target
-                menuItem.representedObject = target
+                objc_setAssociatedObject(menuItem, "target", target, .OBJC_ASSOCIATION_RETAIN)
                 menu.addItem(menuItem)
             }
         }
         
         return menu
     }
+
 }
 
 
