@@ -4,12 +4,14 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.OLoveBar)
-class MenuStateManager: ObservableObject {
-    static var shared: MenuStateManager = MenuStateManager()
-    @ObservedObject var notchState: NotchWindowState = .shared
-    @Published var hoveredPath: [UUID] = []
-    private var menuCloseTask: Task<Void, Never>?
-    private var logTimer: Timer?
+fileprivate class MenuStateManager: ObservableObject {
+
+    static              var shared:         MenuStateManager = MenuStateManager()
+    @ObservedObject     var notchState:     NotchWindowState = .shared
+    @Published          var hoveredPath:    [UUID] = []
+    private             var menuCloseTask:  Task<Void, Never>?
+    private             var logTimer:       Timer?
+
 
     func isInPath(_ itemID: UUID) -> Bool {
         hoveredPath.contains(where: { $0 == itemID })
@@ -62,7 +64,7 @@ struct MenuWidgetView: View {
 }
 
 
-struct MenuButtonView: View {
+fileprivate struct MenuButtonView: View {
     let item: MenuItemData
     let config: Config
 
@@ -105,21 +107,11 @@ struct MenuButtonView: View {
                 menuState.setMenuCloseTaskSchedule()
             }
         }
-        // .popover(isPresented: .constant(isHighlighted && item.submenu != nil)) {
-        //     SubMenuView(item: item, config: config)
-        //         .onHover { hovering in
-        //             if hovering {
-        //                 menuState.cancelMenuCloseTask()
-        //             } else {
-        //                 menuState.setMenuCloseTaskSchedule()
-        //             }
-        //         }
-        // }
     }
 }
 
 
-struct SubMenuView: View {
+fileprivate struct SubMenuView: View {
     let item: MenuItemData
     let config: Config
 
