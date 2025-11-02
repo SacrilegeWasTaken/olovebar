@@ -25,6 +25,8 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
 
     nonisolated(unsafe) private var timer: Timer?
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
+    nonisolated(unsafe) private var lastOutput: String = ""
+    nonisolated(unsafe) private var lastFocused: String = ""
 
     public func startTimer(interval: TimeInterval) {
         timer?.invalidate()
@@ -55,39 +57,37 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     private func updateData() {
-        debug("Updating Data")
         DispatchQueue.global(qos: .userInitiated).async {
-            let all = AerospaceModel.runCommand("aerospace list-workspaces --all")
+            let output = AerospaceModel.runCommand("aerospace list-windows --all --format '%{workspace}|%{app-bundle-id}'")
             let focused = AerospaceModel.runCommand("aerospace list-workspaces --focused")
-            let workspaceIds = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            
+            // Skip update if nothing changed
+            if output == self.lastOutput && focused == self.lastFocused {
+                return
+            }
+            self.lastOutput = output
+            self.lastFocused = focused
+            
+            let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            var workspaceMap: [String: Set<String>] = [:]
+            
+            for line in lines {
+                let parts = line.components(separatedBy: "|")
+                guard parts.count == 2 else { continue }
+                let workspaceId = parts[0]
+                let bundleId = parts[1]
+                workspaceMap[workspaceId, default: []].insert(bundleId)
+            }
+            
+            let allWorkspaces = AerospaceModel.runCommand("aerospace list-workspaces --all")
+            let workspaceIds = allWorkspaces.components(separatedBy: .newlines).filter { !$0.isEmpty }
             
             var workspaceInfos: [WorkspaceInfo] = []
-            
             for workspaceId in workspaceIds {
-                let windowsOutput = AerospaceModel.runCommand("aerospace list-windows --workspace \(workspaceId) --format '%{app-name}|%{app-bundle-id}'")
-                let windows = windowsOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
-                
-                var apps: [AppInfo] = []
-                var seenBundleIds = Set<String>()
-                
-                for window in windows {
-                    let parts = window.components(separatedBy: "|")
-                    guard parts.count == 2 else { continue }
-                    let _ = parts[0] // appName
-                    let bundleId = parts[1]
-                    
-                    // Skip duplicates
-                    if seenBundleIds.contains(bundleId) {
-                        continue
-                    }
-                    seenBundleIds.insert(bundleId)
-                    
-                    // Get app icon
-                    let icon = self.getAppIcon(bundleId: bundleId)
-                    
-                    apps.append(AppInfo(id: bundleId, bundleId: bundleId, icon: icon))
+                let bundleIds = workspaceMap[workspaceId] ?? []
+                let apps = bundleIds.map { bundleId in
+                    AppInfo(id: bundleId, bundleId: bundleId, icon: self.getAppIcon(bundleId: bundleId))
                 }
-                
                 workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
             }
             
