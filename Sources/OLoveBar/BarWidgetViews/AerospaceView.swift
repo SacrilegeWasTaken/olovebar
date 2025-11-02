@@ -1,5 +1,6 @@
 import SwiftUI
 import MacroAPI
+import AppKit
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 struct AerospaceWidgetView: View {
@@ -10,22 +11,34 @@ struct AerospaceWidgetView: View {
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
             cornerRadius: config.widgetCornerRadius
         ) {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             let _ = debug("Updating UI. Focused: \(String(describing: model.focused))")
-            ForEach(model.workspaces, id: \.self) { id in
-                Button(action: { withAnimation { model.focus(id) } }) {
-                    let _ = debug("Updating text UI")
-                    Text(id)
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(width: config.aerospaceWidth, height: config.widgetHeight)
-                        .foregroundColor(id == self.model.focused ? .purple : .white)
-                        .background(.clear)
+            ForEach(model.workspaces) { workspace in
+                Button(action: { withAnimation { model.focus(workspace.id) } }) {
+                    HStack(spacing: 4) {
+                        // Workspace number
+                        Text(workspace.id)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(workspace.id == self.model.focused ? .purple : .white)
+                        
+                        // App icons
+                        ForEach(workspace.apps) { app in
+                            if let icon = app.icon {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 16, height: 16)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: config.widgetHeight)
+                    .background(.clear)
                     
                 }
                 .buttonStyle(.plain)
                 .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
                 .background(.clear)
-                .frame(width: config.aerospaceWidth, height: config.widgetHeight)
                 .animation(.interpolatingSpring(duration: 0.1), value: model.focused)
             }
         }

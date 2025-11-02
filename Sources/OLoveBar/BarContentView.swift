@@ -22,7 +22,7 @@ struct BarContentView: View {
             HStack(spacing: 0) {
                 HStack(spacing: config.rightSpacing) {
                     AppleLogoWidgetView(model: GlobalModels.shared.appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
-                    // AerospaceWidgetView(model: GlobalModels.shared.aerospaceModel, config: config)
+                    AerospaceWidgetView(model: GlobalModels.shared.aerospaceModel, config: config)
                     ActiveAppWidgetView(config: config)
                 }
 

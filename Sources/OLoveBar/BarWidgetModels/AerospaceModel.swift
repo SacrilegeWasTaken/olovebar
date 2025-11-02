@@ -1,6 +1,18 @@
 import Foundation
 import SwiftUI
 import MacroAPI
+import AppKit
+
+public struct WorkspaceInfo: Hashable, Identifiable {
+    public let id: String
+    public let apps: [AppInfo]
+}
+
+public struct AppInfo: Hashable, Identifiable {
+    public let id: String
+    public let bundleId: String
+    public let icon: NSImage?
+}
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 public final class AerospaceModel: ObservableObject, @unchecked Sendable {
@@ -8,7 +20,7 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
         startTimer(interval: 0.15)
     }
 
-    @Published public var workspaces: [String] = []
+    @Published public var workspaces: [WorkspaceInfo] = []
     @Published public var focused: String?
 
     nonisolated(unsafe) private var timer: Timer?
@@ -46,12 +58,50 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
         DispatchQueue.global(qos: .userInitiated).async {
             let all = AerospaceModel.runCommand("aerospace list-workspaces --all")
             let focused = AerospaceModel.runCommand("aerospace list-workspaces --focused")
-            let parsed = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            Task { @MainActor [parsed, focused] in
-                self.workspaces = parsed
+            let workspaceIds = all.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            
+            var workspaceInfos: [WorkspaceInfo] = []
+            
+            for workspaceId in workspaceIds {
+                let windowsOutput = AerospaceModel.runCommand("aerospace list-windows --workspace \(workspaceId) --format '%{app-name}|%{app-bundle-id}'")
+                let windows = windowsOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
+                
+                var apps: [AppInfo] = []
+                var seenBundleIds = Set<String>()
+                
+                for window in windows {
+                    let parts = window.components(separatedBy: "|")
+                    guard parts.count == 2 else { continue }
+                    let _ = parts[0] // appName
+                    let bundleId = parts[1]
+                    
+                    // Skip duplicates
+                    if seenBundleIds.contains(bundleId) {
+                        continue
+                    }
+                    seenBundleIds.insert(bundleId)
+                    
+                    // Get app icon
+                    let icon = self.getAppIcon(bundleId: bundleId)
+                    
+                    apps.append(AppInfo(id: bundleId, bundleId: bundleId, icon: icon))
+                }
+                
+                workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
+            }
+            
+            Task { @MainActor [workspaceInfos, focused] in
+                self.workspaces = workspaceInfos
                 self.focused = focused
             }
         }
+    }
+    
+    private func getAppIcon(bundleId: String) -> NSImage? {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+            return nil
+        }
+        return NSWorkspace.shared.icon(forFile: appURL.path)
     }
 
     public func focus(_ id: String) {
