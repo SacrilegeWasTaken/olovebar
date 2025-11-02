@@ -37,12 +37,20 @@ struct AerospaceWidgetView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .frame(height: config.widgetHeight)
-                    .background(.clear)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.clear,
+                                Color.gray.opacity(workspace.id == model.focused ? 0.3 : 0.15)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .clipShape(Capsule())
                     
                 }
                 .buttonStyle(.plain)
-                .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-                .background(.clear)
             }
         }
         .padding(.horizontal, 4)
