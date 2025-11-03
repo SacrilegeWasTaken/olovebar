@@ -1,6 +1,12 @@
 import SwiftUI
 import MacroAPI
 
+struct WidgetPositionKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
 @MainActor
 @LogFunctions(.OLoveBar)
@@ -75,6 +81,7 @@ fileprivate struct MenuButtonView: View {
     private var isHighlighted: Bool {
         menuState.isFirst(item.id) && menuState.notchState.isFullyExpanded
     }
+    @State private var widgetMiddle: CGFloat = .zero
 
 
     var body: some View {
@@ -108,6 +115,15 @@ fileprivate struct MenuButtonView: View {
                 menuState.setMenuCloseTaskSchedule()
             }
         }
+        .background(
+            GeometryReader { geo in 
+                Color.clear
+                    .preference(key: WidgetPositionKey.self, value: geo.frame(in: .global).midX)
+            }
+        )
+        .onPreferenceChange(WidgetPositionKey.self) { value in
+            widgetMiddle = value
+        }
     }
 
 
@@ -120,8 +136,10 @@ fileprivate struct MenuButtonView: View {
         
         if let window = NSApp.windows.first(where: { $0 is NotchWindow }) as? NotchWindow,
         let contentView = window.contentView {
-            let mouseLocation = window.mouseLocationOutsideOfEventStream
-            menu.popUp(positioning: nil, at: mouseLocation, in: contentView)
+            let menuWidth = menu.size.width
+            let y: CGFloat = -10
+            let x = widgetMiddle - (menuWidth / 2)
+            menu.popUp(positioning: nil, at: CGPoint(x: x, y: y), in: contentView)
         }
     }
 }
