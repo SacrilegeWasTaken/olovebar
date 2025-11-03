@@ -52,7 +52,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] Widget reordering
 - [ ] Removing/Adding widgets into the bar
 - [ ] Migrate from `SwiftUI` popover to `NSMenu` everywhere
-- [ ] Deep Aerospace integration with Aerospace pathes to drop down CPU usage and increase UI reaction
+- [ ] Deep Aerospace integration with Aerospace patches to drop down CPU usage and increase UI reaction
 
 ## Screenshots
 
