@@ -9,7 +9,7 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.batteryModel]))
-public final class BatteryModel: ObservableObject {
+final class BatteryModel: ObservableObject {
     @Published var percentage: Int!
     @Published var isCharging: Bool!
     @Published var state: String!
@@ -19,7 +19,7 @@ public final class BatteryModel: ObservableObject {
     nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource!
     nonisolated(unsafe) private var powerModeObserver: NSObjectProtocol!
 
-    public init() {
+    init() {
         update()
         setupPowerNotifications()
         setupLowPowerModeObserver()

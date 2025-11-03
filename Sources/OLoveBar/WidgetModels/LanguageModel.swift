@@ -5,11 +5,11 @@ import Carbon
 
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
-public final class LanguageModel: ObservableObject {
+final class LanguageModel: ObservableObject {
     @Published var current: String!
     nonisolated(unsafe) private var observer: Any?
 
-    public init() {
+    init() {
         update()
         observer = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
@@ -47,7 +47,7 @@ public final class LanguageModel: ObservableObject {
         }
     }
 
-    public func toggle() {
+    func toggle() {
         guard let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return }
         
         guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }

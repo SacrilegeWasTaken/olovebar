@@ -30,7 +30,7 @@ import Network
 
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
-public final class WiFiModel: ObservableObject {
+final class WiFiModel: ObservableObject {
     @Published var ssid: String? = nil
     @Published var stateIcon: String = "wifi.slash"
     @Published var idealWidth: CGFloat = 120

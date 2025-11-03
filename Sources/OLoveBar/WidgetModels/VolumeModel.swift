@@ -3,7 +3,7 @@ import Foundation
 import CoreAudio
 import MacroAPI
 
-public struct AudioDevice: Identifiable, Equatable {
+struct AudioDevice: Identifiable, Equatable {
     public let id: AudioDeviceID
     public let name: String
 }
@@ -19,7 +19,7 @@ private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UI
 
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
-public final class VolumeModel: ObservableObject {
+final class VolumeModel: ObservableObject {
     var prevLevel: Float!
     @Published var level: Float!
     @Published var isPopoverPresented: Bool = false
@@ -178,7 +178,7 @@ public final class VolumeModel: ObservableObject {
 
 
     @MainActor
-    public func setVolume(_ value: Float) {
+    func setVolume(_ value: Float) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             var volume = value
@@ -194,7 +194,7 @@ public final class VolumeModel: ObservableObject {
         }
     }
 
-    public func setMuted(_ muted: Bool) {
+    func setMuted(_ muted: Bool) {
         var muteValue: UInt32 = muted ? 1 : 0
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
@@ -213,7 +213,7 @@ public final class VolumeModel: ObservableObject {
     }
 
 
-    public func setOutputDevice(_ deviceID: AudioDeviceID) {
+    func setOutputDevice(_ deviceID: AudioDeviceID) {
         var id = deviceID
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,

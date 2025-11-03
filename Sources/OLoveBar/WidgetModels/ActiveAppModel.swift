@@ -4,36 +4,36 @@ import Utilities
 import MacroAPI
 import AppKit
 
-public struct MenuItemData: Identifiable, Hashable {
-    public let id = UUID()
-    public let title: String
-    public let submenu: [MenuItemData]?
-    public let action: Selector?
-    public let keyEquivalent: String
-    public let keyModifiers: NSEvent.ModifierFlags
-    public let isEnabled: Bool
-    public let isSeparator: Bool
+ struct MenuItemData: Identifiable, Hashable {
+    let id = UUID()
+    let title: String
+    let submenu: [MenuItemData]?
+    let action: Selector?
+    let keyEquivalent: String
+    let keyModifiers: NSEvent.ModifierFlags
+    let isEnabled: Bool
+    let isSeparator: Bool
     let element: AXUIElement?
     
-    public static func == (lhs: MenuItemData, rhs: MenuItemData) -> Bool {
+    static func == (lhs: MenuItemData, rhs: MenuItemData) -> Bool {
         lhs.id == rhs.id
     }
     
-    public func hash(into hasher: inout Hasher) {
+    func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 }
 
 @MainActor
 @LogFunctions(.Widgets([.activeAppModel]))
-public class ActiveAppModel: ObservableObject {
+class ActiveAppModel: ObservableObject {
     @Published var bundleID: String = ""
     @Published var appName: String = ""
     @Published var menuItems: [MenuItemData] = []
 
     nonisolated(unsafe) private var observer: NSObjectProtocol?
 
-    public init() {
+    init() {
         update()
         observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,

@@ -3,7 +3,7 @@ import MacroAPI
 
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
-public final class DateTimeModel: ObservableObject {
+final class DateTimeModel: ObservableObject {
     @Published var percentage: Int = 100
     @Published var isCharging: Bool = false
 

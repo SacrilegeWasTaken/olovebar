@@ -3,32 +3,32 @@ import SwiftUI
 import MacroAPI
 import AppKit
 
-public struct WorkspaceInfo: Hashable, Identifiable {
-    public let id: String
-    public let apps: [AppInfo]
+struct WorkspaceInfo: Hashable, Identifiable {
+    let id: String
+    let apps: [AppInfo]
 }
 
-public struct AppInfo: Hashable, Identifiable {
-    public let id: String
-    public let bundleId: String
-    public let icon: NSImage?
+struct AppInfo: Hashable, Identifiable {
+    let id: String
+    let bundleId: String
+    let icon: NSImage?
 }
 
 @LogFunctions(.Widgets([.aerospaceModel]))
-public final class AerospaceModel: ObservableObject, @unchecked Sendable {
-    public init() {
+final class AerospaceModel: ObservableObject, @unchecked Sendable {
+    init() {
         startTimer(interval: 0.2)
     }
 
-    @Published public var workspaces: [WorkspaceInfo] = []
-    @Published public var focused: String?
+    @Published var workspaces: [WorkspaceInfo] = []
+    @Published var focused: String?
 
     nonisolated(unsafe) private var timer: Timer?
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
     nonisolated(unsafe) private var lastOutput: String = ""
     nonisolated(unsafe) private var lastFocused: String = ""
 
-    public func startTimer(interval: TimeInterval) {
+    func startTimer(interval: TimeInterval) {
         timer?.invalidate()
         updateData()
         timer = Timer.scheduledTimer(timeInterval: interval, target: self, selector: #selector(timerTick(_:)), userInfo: nil, repeats: true)
@@ -113,7 +113,7 @@ public final class AerospaceModel: ObservableObject, @unchecked Sendable {
         return icon
     }
 
-    public func focus(_ id: String) {
+    func focus(_ id: String) {
         DispatchQueue.global(qos: .userInitiated).async {
             _ = AerospaceModel.runCommand("aerospace workspace \(id)")
         }
