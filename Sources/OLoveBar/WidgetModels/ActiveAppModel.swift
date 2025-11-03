@@ -10,6 +10,7 @@ public struct MenuItemData: Identifiable, Hashable {
     public let submenu: [MenuItemData]?
     public let action: Selector?
     public let keyEquivalent: String
+    public let keyModifiers: NSEvent.ModifierFlags
     public let isEnabled: Bool
     public let isSeparator: Bool
     let element: AXUIElement?
@@ -113,6 +114,29 @@ public class ActiveAppModel: ObservableObject {
         var keyEquivValue: AnyObject?
         let keyEquiv = (AXUIElementCopyAttributeValue(element, "AXMenuItemCmdChar" as CFString, &keyEquivValue) == .success) ? (keyEquivValue as? String ?? "") : ""
         
+        var modifiersValue: AnyObject?
+        var modifiers: NSEvent.ModifierFlags = []
+        if !keyEquiv.isEmpty {
+            let modResult = AXUIElementCopyAttributeValue(element, "AXMenuItemCmdModifiers" as CFString, &modifiersValue)
+            if modResult == .success, let modInt = modifiersValue as? Int {
+                // Map AX modifier bits to NSEvent.ModifierFlags
+                // Bit 0 (1): Shift
+                // Bit 1 (2): Option
+                // Bit 2 (4): Control  
+                // Bit 3 (8): Function
+                if modInt & 1 != 0 { modifiers.insert(.shift) }
+                if modInt & 2 != 0 { modifiers.insert(.option) }
+                if modInt & 4 != 0 { modifiers.insert(.control) }
+                // if modInt & 8 != 0 { modifiers.insert(.function) }
+                // Command is included unless Function is set
+                if modInt & 8 == 0 {
+                    modifiers.insert(.command)
+                }
+            } else {
+                modifiers = .command
+            }
+        }
+        
         var enabledValue: AnyObject?
         let isEnabled = (AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue) == .success) ? (enabledValue as? Bool ?? true) : true
         
@@ -136,6 +160,7 @@ public class ActiveAppModel: ObservableObject {
             submenu: submenu,
             action: nil,
             keyEquivalent: keyEquiv,
+            keyModifiers: modifiers,
             isEnabled: isEnabled,
             isSeparator: isSeparator,
             element: element
