@@ -4,8 +4,12 @@ import AVFoundation
 
 @LogFunctions(.Widgets([.volumeModel]))
 struct VolumeWidgetView: View {
-    @ObservedObject var model: VolumeModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.volumeModel
+
+
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,

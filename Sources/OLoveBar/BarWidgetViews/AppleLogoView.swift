@@ -7,10 +7,13 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.appleLogoModel]))
 struct AppleLogoWidgetView: View {
-    @ObservedObject var model: AppleLogoModel
-    @ObservedObject var config: Config
-    @ObservedObject var controller: ConfigWindowController
-    @Binding var theme_toggle: Bool
+    @ObservedObject var config:         Config
+    @ObservedObject var controller:     ConfigWindowController
+    @Binding        var theme_toggle:   Bool
+
+
+    @ObservedObject var model = GlobalModels.shared.appleLogoModel
+
 
     var body: some View {
         LiquidGlassBackground(

@@ -1,15 +1,15 @@
 import AppKit
 import SwiftUI
 
-public struct DragWindowArea: NSViewRepresentable {
-    public init() {}
+struct DragWindowArea: NSViewRepresentable {
+    init() {}
 
-    public func makeNSView(context: Context) -> NSView {
+    func makeNSView(context: Context) -> NSView {
         let view = MouseDragView()
         return view
     }
 
-    public func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 @MainActor

@@ -4,10 +4,13 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.activeAppModel]))
 struct ActiveAppWidgetView: View {
-    @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
     @ObservedObject var config: Config
 
-    @State private var showMenuBar: Bool = false
+
+    @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
+
+
+    @State  private var showMenuBar: Bool = false
     @State private var showSubMenu: Bool = false
     @State private var subMenuID: UUID!
 

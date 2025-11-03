@@ -3,8 +3,12 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.dateTimeModel]))
 struct DateTimeWidgetView: View {
-    @ObservedObject var model: DateTimeModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.dateTimeModel
+
+    
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,

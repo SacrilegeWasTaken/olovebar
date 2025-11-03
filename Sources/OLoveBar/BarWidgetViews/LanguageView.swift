@@ -3,8 +3,12 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.languageModel]))
 struct LanguageWidgetView: View {
-    @ObservedObject var model: LanguageModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.languageModel
+
+
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,

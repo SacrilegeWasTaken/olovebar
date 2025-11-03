@@ -3,8 +3,12 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.wifiModel]))
 struct WiFiWidgetView: View {
-    @ObservedObject var model: WiFiModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.wifiModel
+
+    
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,

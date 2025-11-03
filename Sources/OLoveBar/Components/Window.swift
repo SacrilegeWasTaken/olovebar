@@ -5,7 +5,7 @@ protocol WindowMarker: NSWindow {}
 
 
 @MainActor
-class NotchWindowState: ObservableObject {
+final class NotchWindowState: ObservableObject {
     static let shared = NotchWindowState()
 
     @Published var isExpanded = false
@@ -18,7 +18,7 @@ class NotchWindowState: ObservableObject {
 }
 
 
-class NotchWindow: NSWindow, WindowMarker {
+final class NotchWindow: NSWindow, WindowMarker {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
     

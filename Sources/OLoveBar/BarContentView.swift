@@ -21,19 +21,19 @@ struct BarContentView: View {
 
             HStack(spacing: 0) {
                 HStack(spacing: config.rightSpacing) {
-                    AppleLogoWidgetView(model: GlobalModels.shared.appleLogoModel, config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
-                    AerospaceWidgetView(model: GlobalModels.shared.aerospaceModel, config: config)
+                    AppleLogoWidgetView(config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
+                    AerospaceWidgetView(config: config)
                     ActiveAppWidgetView(config: config)
                 }
 
                 Spacer()
                 
                 HStack(spacing: config.leftSpacing) {
-                    WiFiWidgetView(model: GlobalModels.shared.wifiModel, config: config)
-                    BatteryWidgetView(model: GlobalModels.shared.batteryModel, config: config)
-                    LanguageWidgetView(model: GlobalModels.shared.languageModel, config: config)
-                    VolumeWidgetView(model: GlobalModels.shared.volumeModel, config: config)
-                    DateTimeWidgetView(model: GlobalModels.shared.dateTimeModel, config: config)
+                    WiFiWidgetView(config: config)
+                    BatteryWidgetView(config: config)
+                    LanguageWidgetView(config: config)
+                    VolumeWidgetView(config: config)
+                    DateTimeWidgetView(config: config)
                 }
             }
         }

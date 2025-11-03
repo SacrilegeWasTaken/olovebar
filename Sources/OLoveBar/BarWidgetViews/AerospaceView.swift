@@ -4,8 +4,12 @@ import AppKit
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 struct AerospaceWidgetView: View {
-    @ObservedObject var model: AerospaceModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.aerospaceModel
+
+    
     var body: some View {
         LiquidGlassBackground(
             variant: GlassVariant(rawValue: config.widgetGlassVariant)!,

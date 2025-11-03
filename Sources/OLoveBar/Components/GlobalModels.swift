@@ -10,6 +10,7 @@ class GlobalModels {
     lazy var volumeModel = VolumeModel()
     lazy var activeAppModel = ActiveAppModel()
     lazy var dateTimeModel = DateTimeModel()
+    lazy var playerModel = PlayerModel()
     
     private init() {}
 }

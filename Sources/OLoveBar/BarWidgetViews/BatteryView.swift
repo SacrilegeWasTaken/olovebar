@@ -3,8 +3,11 @@ import MacroAPI
 
 @LogFunctions(.Widgets([.batteryModel]))
 struct BatteryWidgetView: View {
-    @ObservedObject var model: BatteryModel
     @ObservedObject var config: Config
+
+
+    @ObservedObject var model = GlobalModels.shared.batteryModel
+    
     
     var batteryColor: Color {
         if model.isLowPowerMode { return .yellow.opacity(0.9) }
