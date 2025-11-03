@@ -32,6 +32,8 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] Power widget like native
 - [x] Notch fancy animations
 - [x] No notch background while expanded
+- [x] Invisible notch on screenshots
+- [x] Notch menu items centered below button like in native bar
 
 ### Planned
 
@@ -49,7 +51,6 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] NetLoad Widget
 - [ ] Widget reordering
 - [ ] Removing/Adding widgets into the bar
-- [ ] Invisible notch on screenshots
 - [ ] Migrate from `SwiftUI` popover to `NSMenu` everywhere. 
 
 ## Screenshots
