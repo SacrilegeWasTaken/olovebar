@@ -50,6 +50,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] Widget reordering
 - [ ] Removing/Adding widgets into the bar
 - [ ] Invisible notch on screenshots
+- [ ] Migrate from `SwiftUI` popover to `NSMenu` everywhere. 
 
 ## Screenshots
 
