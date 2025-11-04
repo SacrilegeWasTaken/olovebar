@@ -26,7 +26,7 @@ struct AerospaceWidgetView: View {
                             .foregroundColor(.white)
                             .frame(minWidth: 12, alignment: .center)
                             .fixedSize()
-                        
+
                         // App icons
                         ForEach(workspace.apps) { app in
                             if let icon = app.icon {
@@ -44,17 +44,6 @@ struct AerospaceWidgetView: View {
                     .frame(height: config.widgetHeight)
                     .background(
                         ZStack {
-                            // Base gradient for all
-                            LinearGradient(
-                                gradient: Gradient(colors: [
-                                    Color.clear,
-                                    Color.gray.opacity(0.05),
-                                    Color.gray.opacity(0.2)
-                                ]),
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            
                             // Extra glow for active workspace
                             if workspace.id == model.focused {
                                 LinearGradient(
@@ -64,6 +53,16 @@ struct AerospaceWidgetView: View {
                                         Color.purple.opacity(0.1),
                                         Color.purple.opacity(0.3),
                                         Color.blue.opacity(0.3)
+                                    ]),
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            } else {
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.clear,
+                                        Color.gray.opacity(0.05),
+                                        Color.gray.opacity(0.2)
                                     ]),
                                     startPoint: .leading,
                                     endPoint: .trailing
