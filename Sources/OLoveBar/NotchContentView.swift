@@ -11,17 +11,25 @@ struct NotchContentView: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                 HStack {
+                    if state.isExpanded { // Avoiding layout hallucinations 
+
+                    }
                 }
-                .frame(maxWidth: .infinity, minHeight: Globals.notchHeight, maxHeight: Globals.notchHeight)
+                .frame(maxWidth: .infinity, maxHeight: Globals.notchHeight)
                 .background(.black)
                 
                 HStack(spacing: 4) {
+                    if state.isExpanded { // Avoiding layout hallucinations 
+
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.black)
 
                 HStack(spacing: 4) {
-                    MenuWidgetView(config: config)
+                    if state.isExpanded { // Avoiding layout hallucinations 
+                        MenuWidgetView(config: config)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: 35)
                 .background(.black)

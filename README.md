@@ -60,21 +60,21 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 
 Left-click on the Apple logo to toggle the background style between **Glass** and **Fully Transparent**:
 
-![Transparent Theme](Resources/transparent_theme.png)
-![Two-Layer Theme](Resources/two_layer_theme.png)
+![Transparent Theme](Assets/transparent_theme.png)
+![Two-Layer Theme](Assets/two_layer_theme.png)
 
 ### Notch Widget
 
-![Notch Widget](Resources/notch.png)
+![Notch Widget](Assets/notch.png)
 
 ### Volume Control
 
-![Volume Widget](Resources/volume.png)
+![Volume Widget](Assets/volume.png)
 
 ### Settings Menu
 
-![Settings](Resources/settings.png)
-![Window Settings](Resources/windowsettings.png)
+![Settings](Assets/settings.png)
+![Window Settings](Assets/windowsettings.png)
 
 ---
 
