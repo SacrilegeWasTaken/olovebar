@@ -48,6 +48,7 @@ struct AerospaceWidgetView: View {
                             LinearGradient(
                                 gradient: Gradient(colors: [
                                     Color.clear,
+                                    Color.gray.opacity(0.05),
                                     Color.gray.opacity(0.2)
                                 ]),
                                 startPoint: .leading,
@@ -60,9 +61,9 @@ struct AerospaceWidgetView: View {
                                     gradient: Gradient(colors: [
                                         Color.clear,
                                         Color.clear,
-                                        Color.purple.opacity(0.2),
-                                        Color.purple.opacity(0.4),
-                                        Color.blue.opacity(0.4)
+                                        Color.purple.opacity(0.1),
+                                        Color.purple.opacity(0.3),
+                                        Color.blue.opacity(0.3)
                                     ]),
                                     startPoint: .leading,
                                     endPoint: .trailing
