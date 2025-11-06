@@ -34,6 +34,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] No notch background while expanded
 - [x] Invisible notch on screenshots
 - [x] Notch menu items centered below button like in native bar
+- [x] Aerospace updates through notifications
 
 ### Planned
 
@@ -42,9 +43,9 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] Battery controls like native menu bar
 - [ ] Aerospace widget color configurations
 - [ ] Notch window configurations
+- [ ] Notch all control center widgets
 - [ ] Tinting app icons
-- [ ] Aerospace updates through notifications (will be configurable)
-- [ ] Better animations
+- [ ] Better and fast animations
 - [ ] WiFi widget optional name configuration
 - [ ] CPU widget
 - [ ] Memory Widget
@@ -52,7 +53,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] Widget reordering
 - [ ] Removing/Adding widgets into the bar
 - [ ] Migrate from `SwiftUI` popover to `NSMenu` everywhere
-- [ ] Deep Aerospace integration with Aerospace patches to drop down CPU usage and increase UI reaction
+- [ ] Deep Aerospace integration with Aerospace to increase UI reaction speed.
 
 ## Screenshots
 
