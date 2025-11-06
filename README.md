@@ -105,7 +105,16 @@ This will:
 - Build the release binary
 - Install to `/usr/local/bin/olovebar`
 
-3. **Run:**
+3. **Add to `~/.config/aerospace/aerospace.toml`**
+```toml
+exec-on-workspace-change = [
+  "/bin/zsh",
+  "-c",
+  "curl -s localhost:43551"
+]
+```
+
+4. **Run:**
 
 ```sh
 olovebar

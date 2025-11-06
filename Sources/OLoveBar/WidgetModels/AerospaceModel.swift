@@ -16,27 +16,92 @@ struct AppInfo: Hashable, Identifiable {
 
 @LogFunctions(.Widgets([.aerospaceModel]))
 final class AerospaceModel: ObservableObject, @unchecked Sendable {
-    init() {
-        startTimer(interval: 0.2)
-    }
-
     @Published var workspaces: [WorkspaceInfo] = []
     @Published var focused: String?
 
-    nonisolated(unsafe) private var timer: Timer?
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
-    nonisolated(unsafe) private var lastOutput: String = ""
-    nonisolated(unsafe) private var lastFocused: String = ""
-
-    func startTimer(interval: TimeInterval) {
-        timer?.invalidate()
+    nonisolated(unsafe) private var serverSocket: Int32 = -1
+    
+    init() {
+        startHTTPServer()
+        setupNotifications()
         updateData()
-        timer = Timer.scheduledTimer(timeInterval: interval, target: self, selector: #selector(timerTick(_:)), userInfo: nil, repeats: true)
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
     }
+    
+    private func setupNotifications() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateData()
+        }
+        
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateData()
+        }
+        
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateData()
+        }
 
-    @objc private func timerTick(_ t: Timer) {
-        updateData()
+        NSWorkspace.shared.notificationCenter.addObserver(  
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateData()
+        }
+    }
+    
+    private func startHTTPServer() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            self.serverSocket = socket(AF_INET, SOCK_STREAM, 0)
+            print("Socket created: \(self.serverSocket)")
+            
+            var addr = sockaddr_in()
+            addr.sin_family = sa_family_t(AF_INET)
+            addr.sin_port = in_port_t(43551).bigEndian // TODO: make configurable
+            addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+            
+            var yes: Int32 = 1
+            setsockopt(self.serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+            
+            let bindResult = withUnsafePointer(to: &addr) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    bind(self.serverSocket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            self.info("Bind result: \(bindResult)")
+            
+            let listenResult = listen(self.serverSocket, 5)
+            self.info("Listen result: \(listenResult)")
+            self.info("HTTP server started on localhost:7777")
+            
+            while true {
+                let client = accept(self.serverSocket, nil, nil)
+                if client < 0 {
+                    self.info("Accept failed: \(client)")
+                    continue
+                }
+                
+                let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"
+                write(client, response, response.utf8.count)
+                close(client)
+                
+                self.info("Triggering updateData()")
+                self.updateData()
+            }
+        }
     }
 
     private static func runCommand(_ command: String) -> String {
@@ -57,16 +122,11 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     private func updateData() {
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
             let output = AerospaceModel.runCommand("aerospace list-windows --all --format '%{workspace}|%{app-bundle-id}'")
             let focused = AerospaceModel.runCommand("aerospace list-workspaces --focused")
-            
-            // Skip update if nothing changed
-            if output == self.lastOutput && focused == self.lastFocused {
-                return
-            }
-            self.lastOutput = output
-            self.lastFocused = focused
+            self.info("Focused workspace: \(focused)")
             
             let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
             var workspaceMap: [String: Set<String>] = [:]
@@ -85,7 +145,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             var workspaceInfos: [WorkspaceInfo] = []
             for workspaceId in workspaceIds {
                 let bundleIds = workspaceMap[workspaceId] ?? []
-                let apps = bundleIds.map { bundleId in
+                let apps = bundleIds.sorted().map { bundleId in
                     AppInfo(id: bundleId, bundleId: bundleId, icon: self.getAppIcon(bundleId: bundleId))
                 }
                 workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
@@ -120,7 +180,9 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     deinit {
-        timer?.invalidate()
+        if serverSocket >= 0 {
+            close(serverSocket)
+        }
     }
 }
 
