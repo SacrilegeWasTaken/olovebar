@@ -86,7 +86,19 @@ Left-click on the Apple logo to toggle the background style between **Glass** an
 
 ---
 
-## Installation
+# Installation by downloading the binary
+
+1. **Download the [latest release binary](https://github.com/SacrilegeWasTaken/olovebar/releases).**
+
+2. **Paste following command into the terminal**
+```sh
+sudo xattr -d com.apple.quarantine /path/to/olovebar
+```
+You can drag-n-drop binary into the terminal to insert the path.
+I'll setup signing later. Have not purchased Apple Developer yet.
+---
+
+## Installation by building the source
 
 1. **Clone the repository:**
 
