@@ -6,6 +6,17 @@ import AppKit
 struct WorkspaceInfo: Hashable, Identifiable {
     let id: String
     let apps: [AppInfo]
+    let updateId = UUID() 
+    
+    static func == (lhs: WorkspaceInfo, rhs: WorkspaceInfo) -> Bool {
+        lhs.id == rhs.id && lhs.apps == rhs.apps
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(apps)
+        hasher.combine(updateId) 
+    }
 }
 
 struct AppInfo: Hashable, Identifiable {
@@ -24,41 +35,29 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     
     init() {
         startHTTPServer()
-        setupNotifications()
+        setupWorkspaceNotifications()
         updateData()
     }
     
-    private func setupNotifications() {
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didLaunchApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateData()
-        }
+    private func setupWorkspaceNotifications() {
+        let notifications: [Notification.Name] = [
+            NSWorkspace.didActivateApplicationNotification,
+            NSWorkspace.didLaunchApplicationNotification,
+            NSWorkspace.didUnhideApplicationNotification,
+            NSWorkspace.didHideApplicationNotification,
+            NSWorkspace.didTerminateApplicationNotification
+        ]
         
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didTerminateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateData()
-        }
-        
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateData()
-        }
-
-        NSWorkspace.shared.notificationCenter.addObserver(  
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateData()
+        notifications.forEach { name in
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.updateData()
+                }
+            }
         }
     }
     

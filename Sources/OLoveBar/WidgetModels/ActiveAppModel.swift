@@ -31,24 +31,31 @@ class ActiveAppModel: ObservableObject {
     @Published var appName: String = ""
     @Published var menuItems: [MenuItemData] = []
 
-    nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     init() {
         update()
-        observer = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.update()
-            }
-        }
+        setupWorkspaceNotifications()
     }
-
-    deinit {
-        if let observer {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+    
+    private func setupWorkspaceNotifications() {
+        let notifications: [Notification.Name] = [
+            NSWorkspace.didActivateApplicationNotification,
+            NSWorkspace.didLaunchApplicationNotification,
+            NSWorkspace.didUnhideApplicationNotification,
+            NSWorkspace.didHideApplicationNotification,
+            NSWorkspace.didTerminateApplicationNotification
+        ]
+        
+        notifications.forEach { name in
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.update()
+                }
+            }
         }
     }
 
@@ -60,8 +67,19 @@ class ActiveAppModel: ObservableObject {
             if self.appName != name {
                 self.appName = name
                 self.bundleID = bid
-                self.menuItems = extractMenuItems()
-                debug("App changed: \(name), MenuItems count: \(menuItems.count)")
+                
+                Task { @MainActor in
+                    while true {
+                        debug("Getting app menus")
+                        let items = extractMenuItems()
+                        if !items.isEmpty {
+                            self.menuItems = items
+                            debug("App changed: \(name), MenuItems count: \(items.count)")
+                            break
+                        }
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                }
             }
         } else {
             self.appName = "None"
