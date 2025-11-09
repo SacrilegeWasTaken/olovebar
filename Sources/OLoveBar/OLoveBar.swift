@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var notchWindow: NotchWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setupSignalHandlers()
         setupWindows()
         subscribeNotifications()
     }
@@ -94,5 +95,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return fullscreen
         }
         return false
+    }
+
+    @MainActor
+    private func setupSignalHandlers() {
+        signal(SIGINT) { _ in
+            print("\nReceived SIGINT, exiting...")
+            NSApplication.shared.terminate(nil)
+        }
+        
+        signal(SIGTERM) { _ in
+            print("\nReceived SIGTERM, exiting...")
+            NSApplication.shared.terminate(nil)
+        }
     }
 }
