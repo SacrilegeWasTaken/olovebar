@@ -16,33 +16,30 @@ struct AppleLogoWidgetView: View {
 
 
     var body: some View {
-        LiquidGlassBackground(
-            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
-            cornerRadius: config.widgetCornerRadius
-        ) {
-            Button(action: {
-                themeToggle.toggle()
-            }) {
-                Image(systemName: "apple.logo")
-                    .frame(width: config.appleLogoWidth, height: config.widgetHeight)
-                    .foregroundColor(.white)
-                    .background(.clear)
-                    .font(.system(size: 15, weight: .semibold))
-                    .cornerRadius(config.widgetCornerRadius)
+        Button(action: {
+            themeToggle.toggle()
+        }) {
+            Image(systemName: "apple.logo")
+                .foregroundColor(.white)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: config.appleLogoWidth, height: config.widgetHeight)
+                .background(
+                    LiquidGlassBackground(
+                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        cornerRadius: config.widgetCornerRadius
+                    ) {}
+                )
+                .cornerRadius(config.widgetCornerRadius)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Settings") {
+                controller.show()
             }
-            .buttonStyle(.plain)
-            .background(.clear)
-            .frame(width: config.appleLogoWidth, height: config.widgetHeight)
-            .cornerRadius(config.widgetCornerRadius)
-            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-            .contextMenu {
-                Button("Settings") {
-                    controller.show()
-                }
-                Button("Quit OLoveBar") {
-                    DispatchQueue.main.async {
-                        NSApplication.shared.terminate(nil)
-                    }
+            Button("Quit OLoveBar") {
+                DispatchQueue.main.async {
+                    NSApplication.shared.terminate(nil)
                 }
             }
         }

@@ -10,31 +10,30 @@ struct DateTimeWidgetView: View {
 
     
     var body: some View {
-        LiquidGlassBackground(
-            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
-            cornerRadius: config.widgetCornerRadius
-        ) {
-            TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
-                Button(action: {
-                    let url = URL(fileURLWithPath: "/System/Applications/Calendar.app")
-                    NSWorkspace.shared.open(url)
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "calendar")
-                            .foregroundColor(.white)
-                            .background(.clear)
-                            .font(.system(size: 12))
-                        Text(timeline.date.formatted(date: .abbreviated, time: .standard))
-                            .foregroundColor(.white)
-                            .background(.clear)
-                            .font(.system(size: 12))
-                    }
-                    .frame(width: config.dateTimeWidth, height: config.widgetHeight)
+        TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
+            Button(action: {
+                let url = URL(fileURLWithPath: "/System/Applications/Calendar.app")
+                NSWorkspace.shared.open(url)
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .foregroundColor(.white)
+                        .font(.system(size: 12))
+                    Text(timeline.date.formatted(date: .abbreviated, time: .standard))
+                        .foregroundColor(.white)
+                        .font(.system(size: 12))
                 }
-                .buttonStyle(.plain)
                 .frame(width: config.dateTimeWidth, height: config.widgetHeight)
+                .background(
+                    LiquidGlassBackground(
+                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        cornerRadius: config.widgetCornerRadius
+                    ) {}
+                )
                 .cornerRadius(config.widgetCornerRadius)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
     }
 }

@@ -9,43 +9,41 @@ struct VolumeWidgetView: View {
     @State private var widgetFrame: CGRect = .zero
 
     var body: some View {
-        LiquidGlassBackground(
-            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
-            cornerRadius: config.widgetCornerRadius
-        ) {
-            Button(action: { showVolumeMenu() }) {
-                var image = switch Double(model.level) {
-                    case 0:
-                        "speaker.slash.fill"
-                    case 0.00000001..<0.33:
-                        "speaker.wave.1.fill"
-                    case 0.33..<0.77:
-                        "speaker.wave.2.fill"
-                    default:
-                        "speaker.wave.3.fill"
-                }
-                if model.isMuted {
-                    let _ = image = "speaker.slash.fill"
-                }
-                Image(systemName: image)
-                    .frame(width: config.volumeWidth, height: config.widgetHeight)
-                    .foregroundColor(.white)
-                    .cornerRadius(config.widgetCornerRadius)
-                    .animation(.easeInOut(duration: 0.3), value: image)
+        Button(action: { showVolumeMenu() }) {
+            var image = switch Double(model.level) {
+                case 0:
+                    "speaker.slash.fill"
+                case 0.00000001..<0.33:
+                    "speaker.wave.1.fill"
+                case 0.33..<0.77:
+                    "speaker.wave.2.fill"
+                default:
+                    "speaker.wave.3.fill"
             }
-            .background(.clear)
-            .buttonStyle(.plain)
-            .cornerRadius(config.widgetCornerRadius)
-            .frame(width: config.volumeWidth, height: config.widgetHeight)
-            .clipShape(RoundedRectangle(cornerRadius: config.widgetCornerRadius, style: .continuous))
-            .background(
-                GeometryReader { geo in
-                    Color.clear.onAppear {
-                        widgetFrame = geo.frame(in: .global)
-                    }
-                }
-            )
+            if model.isMuted {
+                let _ = image = "speaker.slash.fill"
+            }
+            Image(systemName: image)
+                .foregroundColor(.white)
+                .frame(width: config.volumeWidth, height: config.widgetHeight)
+                .background(
+                    LiquidGlassBackground(
+                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        cornerRadius: config.widgetCornerRadius
+                    ) {}
+                )
+                .cornerRadius(config.widgetCornerRadius)
+                .contentShape(Rectangle())
+                .animation(.easeInOut(duration: 0.3), value: image)
         }
+        .buttonStyle(.plain)
+        .background(
+            GeometryReader { geo in
+                Color.clear.onAppear {
+                    widgetFrame = geo.frame(in: .global)
+                }
+            }
+        )
     }
     
     private func showVolumeMenu() {
