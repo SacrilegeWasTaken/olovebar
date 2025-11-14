@@ -13,6 +13,7 @@ public final class Config: ObservableObject {
     @Published public var barVerticalCut: CGFloat = 2
     @Published public var windowGlassVariant: Int = 12
     @Published public var windowCornerRadius: CGFloat = 16
+    @Published public var notchMinimumWidth: CGFloat = 700
     @Published public var hideWindowOnFullScreen: Bool = true
 
     // MARK: - Widget Configuration
@@ -87,7 +88,8 @@ public final class Config: ObservableObject {
                 ("bar_height", { self.barHeight = CGFloat($0) }),
                 ("bar_horizontal_cut", { self.barHorizontalCut = CGFloat($0) }),
                 ("bar_vertical_cut", { self.barVerticalCut = CGFloat($0) }),
-                ("corner_radius", { self.windowCornerRadius = CGFloat($0) })
+                ("corner_radius", { self.windowCornerRadius = CGFloat($0) }),
+                ("notch_min_width", { self.notchMinimumWidth = CGFloat($0) })
             ],
             ints: [
                 ("glass_variant", { self.windowGlassVariant = $0 })
@@ -163,6 +165,7 @@ public final class Config: ObservableObject {
             barVerticalCut: barVerticalCut,
             windowCornerRadius: windowCornerRadius,
             windowGlassVariant: windowGlassVariant,
+            notchMinimumWidth: notchMinimumWidth,
             appleLogoWidth: appleLogoWidth,
             aerospaceWidth: aerospaceWidth,
             activeAppWidth: activeAppWidth,
@@ -187,6 +190,7 @@ public final class Config: ObservableObject {
                 "bar_horizontal_cut": Double(snapshot.barHorizontalCut),
                 "bar_vertical_cut": Double(snapshot.barVerticalCut),
                 "corner_radius": Double(snapshot.windowCornerRadius),
+                "notch_min_width": Double(snapshot.notchMinimumWidth),
                 "glass_variant": snapshot.windowGlassVariant
             ]
             root["window"] = window

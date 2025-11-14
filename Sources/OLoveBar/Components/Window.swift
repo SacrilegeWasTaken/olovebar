@@ -13,6 +13,7 @@ final class NotchWindowState: ObservableObject {
     @Published var isAnimating = false
     @Published var isHoveringPopover = false
     @Published var preferredContentWidth: CGFloat = 0
+    @Published var minimumContentWidth: CGFloat = 350
 
     var isFullyExpanded: Bool {
         isExpanded && !isAnimating
@@ -22,6 +23,11 @@ final class NotchWindowState: ObservableObject {
         let sanitizedWidth = max(0, width)
         guard abs(preferredContentWidth - sanitizedWidth) > 1 else { return }
         preferredContentWidth = sanitizedWidth
+    }
+
+    func updateMinimumWidth(_ width: CGFloat) {
+        let sanitizedWidth = max(0, width)
+        minimumContentWidth = sanitizedWidth
     }
 }
 
@@ -33,7 +39,7 @@ final class NotchWindow: NSWindow, WindowMarker {
     let state = NotchWindowState.shared
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
-    private var baseExpandedFrame: NSRect?
+    private var expandedTemplateFrame: NSRect?
     private nonisolated(unsafe) var isAnimating = false
     private var collapseTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -56,7 +62,7 @@ final class NotchWindow: NSWindow, WindowMarker {
     func setupHoverTracking(collapsedFrame: NSRect, expandedFrame: NSRect) {
         self.collapsedFrame = collapsedFrame
         self.expandedFrame = expandedFrame
-        self.baseExpandedFrame = expandedFrame
+        self.expandedTemplateFrame = expandedFrame
         
         let trackingArea = NSTrackingArea(
             rect: .zero,
@@ -65,6 +71,8 @@ final class NotchWindow: NSWindow, WindowMarker {
             userInfo: nil
         )
         contentView?.addTrackingArea(trackingArea)
+
+        applyPreferredWidth(state.preferredContentWidth)
     }
     
     override func mouseEntered(with event: NSEvent) {
@@ -129,17 +137,27 @@ final class NotchWindow: NSWindow, WindowMarker {
                 self?.applyPreferredWidth(width)
             }
             .store(in: &cancellables)
+
+        state.$minimumContentWidth
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.applyPreferredWidth(self.state.preferredContentWidth)
+            }
+            .store(in: &cancellables)
     }
 
     private func applyPreferredWidth(_ width: CGFloat) {
-        guard width > 0,
-              let collapsed = collapsedFrame,
-              let baseExpanded = baseExpandedFrame else { return }
+        guard let collapsed = collapsedFrame,
+              let template = expandedTemplateFrame else { return }
 
-        let baselineWidth = max(baseExpanded.width, collapsed.width)
+        let configuredMinimum = max(state.minimumContentWidth, collapsed.width)
+        let contentWidth = max(width, 0)
+        let desiredWidth = max(contentWidth, configuredMinimum)
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: Globals.screenWidth, height: Globals.screenHeight)
-        let screenWidthLimit = max(screenFrame.width - 20, baselineWidth)
-        let clampedWidth = min(max(width, baselineWidth), screenWidthLimit)
+        let screenWidthLimit = max(screenFrame.width - 20, collapsed.width)
+        let clampedWidth = min(desiredWidth, screenWidthLimit)
         let centerX = collapsed.midX
         let desiredOriginX = centerX - (clampedWidth / 2)
         let safeMargin: CGFloat = 10
@@ -148,9 +166,9 @@ final class NotchWindow: NSWindow, WindowMarker {
         let constrainedOriginX = min(max(desiredOriginX, minX), maxX)
         let newFrame = NSRect(
             x: constrainedOriginX,
-            y: baseExpanded.origin.y,
+            y: template.origin.y,
             width: clampedWidth,
-            height: baseExpanded.height
+            height: template.height
         )
 
         expandedFrame = newFrame
@@ -257,6 +275,7 @@ func setupNotchWindow<Content: View>(
         ])
 
         window.contentView = container
+    window.state.updateMinimumWidth(config.notchMinimumWidth)
         window.makeKeyAndOrderFront(nil)
         return window
 }

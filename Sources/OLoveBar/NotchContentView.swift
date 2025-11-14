@@ -30,11 +30,11 @@ struct NotchContentView: View {
                 .background(.black)
 
                 HStack(spacing: 0) {
-                    if state.isExpanded { // Avoiding layout hallucinations 
-                        MenuWidgetView(config: config)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
+                    MenuWidgetView(config: config)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .opacity(state.isExpanded ? 1 : 0)
+                        .allowsHitTesting(state.isExpanded)
                 }
                 .frame(maxWidth: .infinity, maxHeight: config.widgetHeight)
                 .background(.black)
@@ -50,11 +50,15 @@ struct NotchContentView: View {
             .animation(.easeInOut(duration: 0.3), value: state.isExpanded)
             .onAppear {
                 activeAppModel.ensureMenuItemsLoaded()
+                state.updateMinimumWidth(config.notchMinimumWidth)
             }
             .onChange(of: state.isExpanded, initial: false) { _, expanded in
                 if expanded {
                     activeAppModel.ensureMenuItemsLoaded()
                 }
+            }
+            .onChange(of: config.notchMinimumWidth, initial: true) { _, newValue in
+                state.updateMinimumWidth(newValue)
             }
         }
     }
