@@ -8,6 +8,13 @@ fileprivate struct WidgetPositionKey: PreferenceKey {
     }
 }
 
+struct MenuWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 @MainActor
 @LogFunctions(.OLoveBar)
 fileprivate class MenuStateManager: ObservableObject {
@@ -59,12 +66,23 @@ struct MenuWidgetView: View {
     @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
 
     var body: some View {
-        ForEach(activeAppModel.menuItems) { item in
-            MenuButtonView(
-                item: item,
-                config: config
-            )
+        HStack(spacing: 0) {
+            ForEach(activeAppModel.menuItems) { item in
+                MenuButtonView(
+                    item: item,
+                    config: config
+                )
+            }
         }
+        .padding(.leading, config.leftSpacing)
+        .padding(.trailing, config.rightSpacing)
+        .fixedSize(horizontal: true, vertical: false)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: MenuWidthPreferenceKey.self, value: proxy.size.width)
+            }
+        )
     }
 }
 

@@ -6,6 +6,9 @@ struct NotchContentView: View {
     @StateObject var config: Config
     @ObservedObject var state: NotchWindowState
     @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
+    private var notchMenuExtraPadding: CGFloat {
+        max(60, config.windowCornerRadius * 2)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -26,13 +29,20 @@ struct NotchContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.black)
 
-                HStack(spacing: 4) {
+                HStack(spacing: 0) {
                     if state.isExpanded { // Avoiding layout hallucinations 
                         MenuWidgetView(config: config)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: 35)
+                .frame(maxWidth: .infinity, maxHeight: config.widgetHeight)
                 .background(.black)
+                .onPreferenceChange(MenuWidthPreferenceKey.self) { width in
+                    guard width > 0 else { return }
+                    let paddedWidth = width + notchMenuExtraPadding
+                    state.updatePreferredWidth(paddedWidth)
+                }
             }
             .background(.black)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

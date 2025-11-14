@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 protocol WindowMarker: NSWindow {}
 
@@ -11,9 +12,16 @@ final class NotchWindowState: ObservableObject {
     @Published var isExpanded = false
     @Published var isAnimating = false
     @Published var isHoveringPopover = false
+    @Published var preferredContentWidth: CGFloat = 0
 
     var isFullyExpanded: Bool {
         isExpanded && !isAnimating
+    }
+
+    func updatePreferredWidth(_ width: CGFloat) {
+        let sanitizedWidth = max(0, width)
+        guard abs(preferredContentWidth - sanitizedWidth) > 1 else { return }
+        preferredContentWidth = sanitizedWidth
     }
 }
 
@@ -25,12 +33,30 @@ final class NotchWindow: NSWindow, WindowMarker {
     let state = NotchWindowState.shared
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
+    private var baseExpandedFrame: NSRect?
     private nonisolated(unsafe) var isAnimating = false
     private var collapseTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
+
+    override init(
+        contentRect: NSRect,
+        styleMask style: NSWindow.StyleMask,
+        backing backingStoreType: NSWindow.BackingStoreType,
+        defer flag: Bool
+    ) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        observePreferredWidth()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
     
     func setupHoverTracking(collapsedFrame: NSRect, expandedFrame: NSRect) {
         self.collapsedFrame = collapsedFrame
         self.expandedFrame = expandedFrame
+        self.baseExpandedFrame = expandedFrame
         
         let trackingArea = NSTrackingArea(
             rect: .zero,
@@ -92,6 +118,45 @@ final class NotchWindow: NSWindow, WindowMarker {
         } else if !isInside && state.isExpanded && !state.isHoveringPopover, let collapsed = collapsedFrame {
             state.isExpanded = false
             animateFrame(to: collapsed)
+        }
+    }
+
+    private func observePreferredWidth() {
+        state.$preferredContentWidth
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] width in
+                self?.applyPreferredWidth(width)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyPreferredWidth(_ width: CGFloat) {
+        guard width > 0,
+              let collapsed = collapsedFrame,
+              let baseExpanded = baseExpandedFrame else { return }
+
+        let baselineWidth = max(baseExpanded.width, collapsed.width)
+        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: Globals.screenWidth, height: Globals.screenHeight)
+        let screenWidthLimit = max(screenFrame.width - 20, baselineWidth)
+        let clampedWidth = min(max(width, baselineWidth), screenWidthLimit)
+        let centerX = collapsed.midX
+        let desiredOriginX = centerX - (clampedWidth / 2)
+        let safeMargin: CGFloat = 10
+        let minX = screenFrame.minX + safeMargin
+        let maxX = screenFrame.maxX - clampedWidth - safeMargin
+        let constrainedOriginX = min(max(desiredOriginX, minX), maxX)
+        let newFrame = NSRect(
+            x: constrainedOriginX,
+            y: baseExpanded.origin.y,
+            width: clampedWidth,
+            height: baseExpanded.height
+        )
+
+        expandedFrame = newFrame
+
+        if state.isExpanded {
+            animateFrame(to: newFrame)
         }
     }
 }
