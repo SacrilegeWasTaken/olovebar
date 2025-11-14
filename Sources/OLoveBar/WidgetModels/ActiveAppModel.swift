@@ -31,10 +31,17 @@ class ActiveAppModel: ObservableObject {
     @Published var appName: String = ""
     @Published var menuItems: [MenuItemData] = []
 
+    private var menuLoadTask: Task<Void, Never>?
+    private var lastLoadedBundleID: String = ""
+
 
     init() {
         update()
         setupWorkspaceNotifications()
+    }
+
+    deinit {
+        menuLoadTask?.cancel()
     }
     
     private func setupWorkspaceNotifications() {
@@ -60,31 +67,50 @@ class ActiveAppModel: ObservableObject {
     }
 
 
-    func update() {
-        if let app = NSWorkspace.shared.frontmostApplication {
-            let name = app.localizedName ?? ""
-            let bid = app.bundleIdentifier ?? ""
-            if self.appName != name {
-                self.appName = name
-                self.bundleID = bid
-                
-                Task { @MainActor in
-                    while true {
-                        debug("Getting app menus")
-                        let items = extractMenuItems()
-                        if !items.isEmpty {
-                            self.menuItems = items
-                            debug("App changed: \(name), MenuItems count: \(items.count)")
-                            break
-                        }
-                        try? await Task.sleep(for: .milliseconds(100))
-                    }
+    func update(forceReload: Bool = false) {
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            appName = "None"
+            bundleID = ""
+            menuItems = []
+            menuLoadTask?.cancel()
+            lastLoadedBundleID = ""
+            return
+        }
+
+        let name = app.localizedName ?? ""
+        let bid = app.bundleIdentifier ?? ""
+        let appChanged = bundleID != bid
+
+        appName = name
+        bundleID = bid
+
+        if appChanged {
+            menuItems = []
+            lastLoadedBundleID = ""
+        }
+
+        ensureMenuItemsLoaded(force: forceReload || appChanged)
+    }
+
+    func ensureMenuItemsLoaded(force: Bool = false) {
+        guard force || menuItems.isEmpty || bundleID != lastLoadedBundleID else { return }
+
+        menuLoadTask?.cancel()
+        menuLoadTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while true {
+                debug("Getting app menus")
+                let items = self.extractMenuItems()
+                if !items.isEmpty {
+                    self.menuItems = items
+                    self.lastLoadedBundleID = self.bundleID
+                    debug("Menu cache updated: \(self.appName), MenuItems count: \(items.count)")
+                    break
                 }
+
+                guard !Task.isCancelled else { return }
+                try? await Task.sleep(for: .milliseconds(100))
             }
-        } else {
-            self.appName = "None"
-            self.bundleID = ""
-            self.menuItems = []
         }
     }
     

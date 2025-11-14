@@ -38,6 +38,14 @@ struct NotchContentView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .opacity(state.isExpanded ? 1 : 0)
             .animation(.easeInOut(duration: 0.3), value: state.isExpanded)
+            .onAppear {
+                activeAppModel.ensureMenuItemsLoaded()
+            }
+            .onChange(of: state.isExpanded, initial: false) { _, expanded in
+                if expanded {
+                    activeAppModel.ensureMenuItemsLoaded()
+                }
+            }
         }
     }
 }
