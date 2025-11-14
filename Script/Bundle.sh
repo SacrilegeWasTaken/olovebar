@@ -67,29 +67,42 @@ cat > "$APP_PATH/Contents/Info.plist" <<EOF
 <dict>
     <key>CFBundleName</key>
     <string>$APP_NAME</string>
+
     <key>CFBundleDisplayName</key>
     <string>$APP_NAME</string>
+
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
+
     <key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
+
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+
     <key>CFBundleVersion</key>
     <string>1</string>
+
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
+
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
+
+    <!-- самое важное: делает приложение агентом (menubar-style) -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- важно: оставляем обычное приложение, но скрытое -->
     <key>LSBackgroundOnly</key>
     <false/>
+
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
 </dict>
 </plist>
 EOF
+
 
 # Create PkgInfo
 printf "APPL????" > "$APP_PATH/Contents/PkgInfo"

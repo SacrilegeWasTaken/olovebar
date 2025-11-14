@@ -110,7 +110,7 @@ cd olovebar
 2. **Install to system:**
 
 ```sh
-make install
+make install-cli # `install` is buggy (app bundle)
 ```
 
 This will:
