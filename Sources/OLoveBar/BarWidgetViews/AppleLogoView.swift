@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 import TOMLKit
 import MacroAPI
 
@@ -97,11 +97,19 @@ fileprivate struct ConfigEditorView: View {
                                     GlassStepper(title: "Corner Radius", value: $config.windowCornerRadius, range: 0...40)
                                     GlassStepper(title: "Glass Variant", value: $config.windowGlassVariant, range: 0...19)
                                 }
+                                
+                                SettingsSection(title: "Notch") {
+                                    GlassStepper(title: "Minimum Width", value: $config.notchMinimumWidth, range: 350...1200)
+                                }
+                                
+                                SettingsSection(title: "Behavior") {
+                                    GlassToggle(title: "Hide on Fullscreen", value: $config.hideWindowOnFullScreen)
+                                }
                             } else {
                                 SettingsSection(title: "Appearance") {
                                     GlassStepper(title: "Glass Variant", value: $config.widgetGlassVariant, range: 0...19)
-                                    GlassStepper(title: "Height", value: $config.widgetHeight, range: 20...60)
-                                    GlassStepper(title: "Corner Radius", value: $config.widgetCornerRadius, range: 0...40)
+                                    GlassStepper(title: "Height", value: $config.widgetHeight, range: 0...200)
+                                    GlassStepper(title: "Corner Radius", value: $config.widgetCornerRadius, range: 0...80)
                                 }
                                 
                                 SettingsSection(title: "Widget Widths") {
@@ -109,7 +117,7 @@ fileprivate struct ConfigEditorView: View {
                                     GlassStepper(title: "Aerospace", value: $config.aerospaceWidth, range: 20...100)
                                     GlassStepper(title: "Active App", value: $config.activeAppWidth, range: 20...100)
                                     GlassStepper(title: "Date & Time", value: $config.dateTimeWidth, range: 50...250)
-                                    GlassStepper(title: "WiFi", value: $config.wifiWidth, range: 20...150)
+                                    GlassStepper(title: "WiFi", value: $config.wifiWidth, range: 2...150)
                                     GlassStepper(title: "Battery", value: $config.batteryWidth, range: 20...150)
                                     GlassStepper(title: "Language", value: $config.languageWidth, range: 20...100)
                                     GlassStepper(title: "Volume", value: $config.volumeWidth, range: 20...100)
@@ -118,6 +126,11 @@ fileprivate struct ConfigEditorView: View {
                                 SettingsSection(title: "Spacing") {
                                     GlassStepper(title: "Right", value: $config.rightSpacing, range: 0...50)
                                     GlassStepper(title: "Left", value: $config.leftSpacing, range: 0...50)
+                                }
+                                
+                                SettingsSection(title: "Options") {
+                                    GlassToggle(title: "Show Battery %", value: $config.showBatteryPercentage)
+                                    GlassToggle(title: "Show WiFi Name", value: $config.showWiFiName)
                                 }
                             }
                         }
@@ -268,5 +281,34 @@ fileprivate struct GlassStepper<Value: Strideable>: View where Value.Stride: Sig
     private func decrement() {
         let newValue = value.advanced(by: -step)
         value = max(newValue, range.lowerBound)
+    }
+}
+
+fileprivate struct GlassToggle: View {
+    let title: String
+    @Binding var value: Bool
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.9))
+            
+            Spacer()
+            
+            Toggle("", isOn: $value)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(.white.opacity(0.1), lineWidth: 0.5)
+        )
     }
 }

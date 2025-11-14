@@ -30,6 +30,8 @@ public final class Config: ObservableObject {
     @Published public var rightSpacing: CGFloat = 16
     @Published public var widgetGlassVariant: Int = 11
     @Published public var leftSpacing: CGFloat = 8
+    @Published public var showBatteryPercentage: Bool = true
+    @Published public var showWiFiName: Bool = true
 
     // MARK: - Init
     init() {
@@ -93,6 +95,9 @@ public final class Config: ObservableObject {
             ],
             ints: [
                 ("glass_variant", { self.windowGlassVariant = $0 })
+            ],
+            bools: [
+                ("hide_on_fullscreen", { self.hideWindowOnFullScreen = $0 })
             ]
         )
     }
@@ -117,6 +122,10 @@ public final class Config: ObservableObject {
             ],
             ints: [
                 ("glass_variant", { self.widgetGlassVariant = $0 })
+            ],
+            bools: [
+                ("show_battery_percentage", { self.showBatteryPercentage = $0 }),
+                ("show_wifi_name", { self.showWiFiName = $0 })
             ]
         )
     }
@@ -126,7 +135,8 @@ public final class Config: ObservableObject {
     private func load_section(
         name: String,
         doubles: [(key: String, assign: (Double) -> Void)] = [],
-        ints: [(key: String, assign: (Int) -> Void)] = []
+        ints: [(key: String, assign: (Int) -> Void)] = [],
+        bools: [(key: String, assign: (Bool) -> Void)] = []
     ) {
         info("Loading Sections")
         for (key, assign) in doubles {
@@ -154,6 +164,13 @@ public final class Config: ObservableObject {
                 }
             }
         }
+
+        for (key, assign) in bools {
+            if let sectionTable = self.section(name), let node = sectionTable[key], let boolValue = node.bool {
+                assign(boolValue)
+                info("Loaded \(name).\(key) = \(boolValue)")
+            }
+        }
     }
 
 
@@ -166,6 +183,7 @@ public final class Config: ObservableObject {
             windowCornerRadius: windowCornerRadius,
             windowGlassVariant: windowGlassVariant,
             notchMinimumWidth: notchMinimumWidth,
+            hideWindowOnFullScreen: hideWindowOnFullScreen,
             appleLogoWidth: appleLogoWidth,
             aerospaceWidth: aerospaceWidth,
             activeAppWidth: activeAppWidth,
@@ -178,7 +196,9 @@ public final class Config: ObservableObject {
             volumeWidth: volumeWidth,
             rightSpacing: rightSpacing,
             leftSpacing: leftSpacing,
-            widgetGlassVariant: widgetGlassVariant
+            widgetGlassVariant: widgetGlassVariant,
+            showBatteryPercentage: showBatteryPercentage,
+            showWiFiName: showWiFiName
         )
 
         DispatchQueue.global(qos: .utility).async {
@@ -191,7 +211,8 @@ public final class Config: ObservableObject {
                 "bar_vertical_cut": Double(snapshot.barVerticalCut),
                 "corner_radius": Double(snapshot.windowCornerRadius),
                 "notch_min_width": Double(snapshot.notchMinimumWidth),
-                "glass_variant": snapshot.windowGlassVariant
+                "glass_variant": snapshot.windowGlassVariant,
+                "hide_on_fullscreen": snapshot.hideWindowOnFullScreen
             ]
             root["window"] = window
 
@@ -209,7 +230,9 @@ public final class Config: ObservableObject {
                 "volume_width": Double(snapshot.volumeWidth),
                 "right_spacing": Double(snapshot.rightSpacing),
                 "left_spacing": Double(snapshot.leftSpacing),
-                "glass_variant": snapshot.widgetGlassVariant
+                "glass_variant": snapshot.widgetGlassVariant,
+                "show_battery_percentage": snapshot.showBatteryPercentage,
+                "show_wifi_name": snapshot.showWiFiName
             ]
             root["widget"] = widget
 
