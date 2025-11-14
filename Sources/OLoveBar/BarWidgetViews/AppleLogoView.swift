@@ -9,7 +9,7 @@ import MacroAPI
 struct AppleLogoWidgetView: View {
     @ObservedObject var config:         Config
     @ObservedObject var controller:     ConfigWindowController
-    @Binding        var theme_toggle:   Bool
+    @Binding        var themeToggle:    Bool
 
 
     @ObservedObject var model = GlobalModels.shared.appleLogoModel
@@ -21,7 +21,7 @@ struct AppleLogoWidgetView: View {
             cornerRadius: config.widgetCornerRadius
         ) {
             Button(action: {
-                theme_toggle.toggle()
+                themeToggle.toggle()
             }) {
                 Image(systemName: "apple.logo")
                     .frame(width: config.appleLogoWidth, height: config.widgetHeight)

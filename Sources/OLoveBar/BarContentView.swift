@@ -5,12 +5,12 @@ import MacroAPI
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
     @StateObject var config: Config
-    @State private var theme_toggle: Bool = true
+    @State private var themeToggle: Bool = true
 
 
     var body: some View {
         ZStack {
-            if self.theme_toggle {
+            if self.themeToggle {
                 LiquidGlassBackground(
                     variant: GlassVariant(rawValue: config.windowGlassVariant)!,
                     cornerRadius: config.widgetCornerRadius
@@ -21,7 +21,7 @@ struct BarContentView: View {
 
             HStack(spacing: 0) {
                 HStack(spacing: config.rightSpacing) {
-                    AppleLogoWidgetView(config: config, controller: ConfigWindowController(config: config), theme_toggle: $theme_toggle)
+                    AppleLogoWidgetView(config: config, controller: ConfigWindowController(config: config), themeToggle: $themeToggle)
                     AerospaceWidgetView(config: config)
                     ActiveAppWidgetView(config: config)
                 }
