@@ -92,7 +92,9 @@ Left-click on the Apple logo to toggle the background style between **Glass** an
 
 # Installation by downloading the binary
 
-1. **Download the [latest release binary](https://github.com/SacrilegeWasTaken/olovebar/releases).**
+**PLEASE NOTE THAT I CANNOT AFFORD APPLE DEVELOPER PROGRAM ENROLLMENT RIGHT NOW SO YOU HAVE TO BUILD IT MANUALLY**
+
+1. **Download the [latest release binary](https://github.com/SacrilegeWasTaken/olovebar/releases). DEPRECATED!**
 
 2. **Paste following command into the terminal**
 ```sh
