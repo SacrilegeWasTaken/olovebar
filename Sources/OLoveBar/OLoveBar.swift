@@ -1,4 +1,5 @@
 import Cocoa
+import ApplicationServices
 import SwiftUI
 
 @main
@@ -15,8 +16,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupSignalHandlers()
+        requestAccessibilityIfNeeded()
         setupWindows()
         subscribeNotifications()
+    }
+
+    private func requestAccessibilityIfNeeded() {
+        // Prompt the system Accessibility permission dialog if needed.
+        // Use the known key name for the AX trusted prompt to avoid Unmanaged/ concurrency issues
+        // First check if we're already trusted
+        if AXIsProcessTrusted() { return }
+
+        // Ask the system to show the Accessibility prompt once
+        let options = ["AXTrustedCheckOptionPrompt" as CFString: kCFBooleanTrue] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
+
     }
 
     @MainActor

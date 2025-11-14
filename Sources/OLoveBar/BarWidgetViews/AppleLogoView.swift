@@ -39,6 +39,11 @@ struct AppleLogoWidgetView: View {
                 Button("Settings") {
                     controller.show()
                 }
+                Button("Quit OLoveBar") {
+                    DispatchQueue.main.async {
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
             }
         }
     }

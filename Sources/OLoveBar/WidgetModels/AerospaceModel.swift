@@ -69,7 +69,8 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             
             var addr = sockaddr_in()
             addr.sin_family = sa_family_t(AF_INET)
-            addr.sin_port = in_port_t(43551).bigEndian // TODO: make configurable
+            let portNumber: in_port_t = 43551 // TODO: make configurable
+            addr.sin_port = portNumber.bigEndian
             addr.sin_addr.s_addr = inet_addr("127.0.0.1")
             
             var yes: Int32 = 1
@@ -84,7 +85,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             
             let listenResult = listen(self.serverSocket, 5)
             self.info("Listen result: \(listenResult)")
-            self.info("HTTP server started on localhost:7777")
+            self.info("HTTP server started on localhost:\(portNumber)")
             
             while true {
                 let client = accept(self.serverSocket, nil, nil)
@@ -104,20 +105,82 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     private static func runCommand(_ command: String) -> String {
+        // Ensure we resolve the aerospace CLI to an absolute path when possible
+        if command.hasPrefix("aerospace ") || command == "aerospace" {
+            if let path = resolveAerospacePath() {
+                // replace only the first occurrence (the command)
+                let remainder = command.dropFirst("aerospace".count)
+                return runCommand(String(path) + String(remainder))
+            }
+        }
+
         let task = Process()
-        let pipe = Pipe()
-        task.standardError = Pipe()
-        task.standardOutput = pipe
+        let outPipe = Pipe()
+        let errPipe = Pipe()
+        task.standardOutput = outPipe
+        task.standardError = errPipe
         task.arguments = ["-c", command]
         task.launchPath = "/bin/zsh"
+
+        // Ensure PATH includes common locations (Homebrew, /usr/local) so external tools are found when running inside a .app bundle
+        var env = ProcessInfo.processInfo.environment
+        let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+        let existingPATH = env["PATH"] ?? ""
+        let combined = (extraPaths + [existingPATH]).joined(separator: ":")
+        env["PATH"] = combined
+        task.environment = env
+
         do {
             try task.run()
             task.waitUntilExit()
         } catch {
             return ""
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
+        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
+        let out = String(decoding: outData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        let err = String(decoding: errData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !err.isEmpty {
+            // Print stderr to aid debugging when app is launched from Finder
+            fputs("[aerospace stderr] \(err)\n", stderr)
+        }
+        return out
+    }
+
+    nonisolated(unsafe) private static var cachedAerospacePath: String?
+
+    private static func resolveAerospacePath() -> String? {
+        if let cached = cachedAerospacePath, FileManager.default.fileExists(atPath: cached) {
+            return cached
+        }
+
+        // Check common locations first
+        let candidates = [
+            "/opt/homebrew/bin/aerospace",
+            "/usr/local/bin/aerospace",
+            "/usr/bin/aerospace",
+            "/bin/aerospace"
+        ]
+        for c in candidates {
+            if FileManager.default.isExecutableFile(atPath: c) {
+                cachedAerospacePath = c
+                return c
+            }
+        }
+
+        // Fallback: check PATH environment
+        if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
+            for dir in pathEnv.split(separator: ":") {
+                let p = String(dir) + "/aerospace"
+                if FileManager.default.isExecutableFile(atPath: p) {
+                    cachedAerospacePath = p
+                    return p
+                }
+            }
+        }
+
+        return nil
     }
 
     private func updateData() {
