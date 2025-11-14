@@ -30,14 +30,21 @@ struct NotchContentView: View {
                 .background(.black)
 
                 HStack(spacing: 0) {
-                    MenuWidgetView(config: config)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .opacity(state.isExpanded ? 1 : 0)
-                        .allowsHitTesting(state.isExpanded)
+                    if state.isExpanded {
+                        MenuWidgetView(config: config)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: config.widgetHeight)
                 .background(.black)
+                .overlay(alignment: .center) {
+                    MenuWidgetView(config: config)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .opacity(0.01)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
                 .onPreferenceChange(MenuWidthPreferenceKey.self) { width in
                     guard width > 0 else { return }
                     let paddedWidth = width + notchMenuExtraPadding
