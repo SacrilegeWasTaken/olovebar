@@ -7,6 +7,10 @@
 
 **Olovebar** is a Swift-based, fully customizable menu bar inspired by Apple's **Liquid Glass** design philosophy.
 
+<p align="center">
+  <img src="Resources/logo.png" alt="OLoveBar Icon" width="512" />
+</p>
+
 All widgets are clickable and behave like native macOS menu bar widgets. You can customize the glass style of the menu bar via the **config menu** (right-click on the Apple logo widget), including:
 
 - Widget types  
@@ -110,7 +114,7 @@ cd olovebar
 2. **Install to system:**
 
 ```sh
-make install-cli # `install` is buggy (app bundle)
+make install 
 ```
 
 This will:
@@ -129,9 +133,7 @@ exec-on-workspace-change = [
 
 4. **Run:**
 
-```sh
-olovebar
-```
+Run the OLoveBar application bundle from Applications folder.
 
 ---
 

@@ -13,7 +13,7 @@ run: build
 
 
 bundle: release
-	@bash Script/Bundle.sh .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar
+	@uv run Script/Bundle.py .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar
 
 
 install: bundle

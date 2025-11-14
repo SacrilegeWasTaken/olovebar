@@ -2,10 +2,17 @@ import Cocoa
 import ApplicationServices
 import SwiftUI
 
+class SilentApp: NSApplication {
+    override func finishLaunching() {
+        self.setActivationPolicy(.prohibited)
+        super.finishLaunching()
+    }
+}
+
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
     static func main() {
-        let app = NSApplication.shared
+        let app = SilentApp.shared
         let delegate = AppDelegate()
         app.delegate = delegate
         app.run()

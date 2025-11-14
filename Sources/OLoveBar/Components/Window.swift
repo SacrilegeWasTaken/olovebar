@@ -311,7 +311,7 @@ func setupWindow<Content: View>(
         ])
 
         window.contentView = container
-        window.makeKeyAndOrderFront(nil)
+        window.orderFront(nil)
         return window
 }
 
@@ -358,7 +358,7 @@ func setupNotchWindow<Content: View>(
         ])
 
         window.contentView = container
-    window.state.updateMinimumWidth(config.notchMinimumWidth)
-        window.makeKeyAndOrderFront(nil)
+        window.state.updateMinimumWidth(config.notchMinimumWidth)
+        window.orderFront(nil)
         return window
 }
