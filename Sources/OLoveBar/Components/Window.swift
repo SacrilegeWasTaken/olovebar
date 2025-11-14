@@ -15,6 +15,8 @@ final class NotchWindowState: ObservableObject {
     @Published var preferredContentWidth: CGFloat = 0
     @Published var minimumContentWidth: CGFloat = 350
 
+    private var widthAnimationTask: Task<Void, Never>?
+
     var isFullyExpanded: Bool {
         isExpanded && !isAnimating
     }
@@ -22,7 +24,45 @@ final class NotchWindowState: ObservableObject {
     func updatePreferredWidth(_ width: CGFloat) {
         let sanitizedWidth = max(0, width)
         guard abs(preferredContentWidth - sanitizedWidth) > 1 else { return }
-        preferredContentWidth = sanitizedWidth
+        // Cancel any running interpolation
+        widthAnimationTask?.cancel()
+
+        // Do a small immediate step to kick the animation without waiting
+        let current = preferredContentWidth
+        let target = sanitizedWidth
+        let initialProgress: Double = 0.15
+        let immediate = CGFloat(Double(current) + (Double(target - current) * initialProgress))
+        // Apply immediate step synchronously on main thread
+        DispatchQueue.main.async { [weak self] in
+            self?.preferredContentWidth = immediate
+        }
+
+        // Smoothly interpolate preferredContentWidth to the new value (shorter duration)
+        widthAnimationTask = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            let start = self.preferredContentWidth
+            let end = target
+            let duration: Double = 0.1
+            let fps: Double = 120
+            let steps = max(1, Int(duration * fps))
+
+            func easeInOutCubic(_ t: Double) -> Double {
+                return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+            }
+
+            for i in 1...steps {
+                if Task.isCancelled { return }
+                let t = Double(i) / Double(steps)
+                let eased = easeInOutCubic(t)
+                let value = CGFloat(Double(start) + (Double(end - start) * eased))
+                self.preferredContentWidth = value
+                try? await Task.sleep(nanoseconds: UInt64((duration / Double(steps)) * 1_000_000_000))
+            }
+
+            // Ensure final value
+            self.preferredContentWidth = end
+            widthAnimationTask = nil
+        }
     }
 
     func updateMinimumWidth(_ width: CGFloat) {
@@ -40,6 +80,7 @@ final class NotchWindow: NSWindow, WindowMarker {
     private var collapsedFrame: NSRect?
     private var expandedFrame: NSRect?
     private var expandedTemplateFrame: NSRect?
+    private var collapsedTemplateFrame: NSRect?
     private nonisolated(unsafe) var isAnimating = false
     private var collapseTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -52,6 +93,7 @@ final class NotchWindow: NSWindow, WindowMarker {
     ) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
         observePreferredWidth()
+        NotificationCenter.default.addObserver(self, selector: #selector(screenParametersChanged(_:)), name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
     @available(*, unavailable)
@@ -63,6 +105,7 @@ final class NotchWindow: NSWindow, WindowMarker {
         self.collapsedFrame = collapsedFrame
         self.expandedFrame = expandedFrame
         self.expandedTemplateFrame = expandedFrame
+        self.collapsedTemplateFrame = collapsedFrame
         
         let trackingArea = NSTrackingArea(
             rect: .zero,
@@ -73,6 +116,46 @@ final class NotchWindow: NSWindow, WindowMarker {
         contentView?.addTrackingArea(trackingArea)
 
         applyPreferredWidth(state.preferredContentWidth)
+    }
+
+    @objc private func screenParametersChanged(_ note: Notification) {
+        Task { @MainActor in
+            await self.recomputeFramesForScreenChange()
+        }
+    }
+
+    private func recomputeFramesForScreenChange() async {
+        guard collapsedTemplateFrame != nil else { return }
+
+        // Recompute collapsed frame based on current Globals
+        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: Globals.screenWidth, height: Globals.screenHeight)
+        let collapsedWidth = Globals.notchWidth - 10
+        let collapsedX = Globals.screenWidth / 2 - Globals.notchWidth / 2 + 5
+        let collapsedY = screenFrame.height - Globals.notchHeight + 5
+        let collapsedHeight = Globals.notchHeight - 5
+        let newCollapsed = NSRect(x: collapsedX, y: collapsedY, width: collapsedWidth, height: collapsedHeight)
+
+        // Recompute expanded template from collapsed
+        let newExpandedTemplate = NSRect(
+            x: newCollapsed.minX - 250,
+            y: newCollapsed.minY - 100,
+            width: newCollapsed.width + 500,
+            height: newCollapsed.height + 100
+        )
+
+        self.collapsedTemplateFrame = newCollapsed
+        self.expandedTemplateFrame = newExpandedTemplate
+
+        // Update collapsed/expanded actual frames and animate if size changes
+        if state.isExpanded {
+            // Re-apply preferred width which will animate expanded frame
+            applyPreferredWidth(state.preferredContentWidth)
+        } else {
+            if let currentCollapsed = self.collapsedFrame, !NSEqualRects(currentCollapsed, newCollapsed) {
+                self.collapsedFrame = newCollapsed
+                animateFrame(to: newCollapsed)
+            }
+        }
     }
     
     override func mouseEntered(with event: NSEvent) {
