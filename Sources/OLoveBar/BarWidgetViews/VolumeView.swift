@@ -2,11 +2,35 @@ import SwiftUI
 import MacroAPI
 import AVFoundation
 
+struct VolumeSliderView: View {
+    @ObservedObject var model: VolumeModel
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "speaker.slash.fill")
+                .foregroundColor(.white)
+            Slider(value: Binding(
+                get: { Double(model.level ?? 0) },
+                set: { val in
+                    if model.isMuted && val > 0 {
+                        model.setMuted(false)
+                    }
+                    model.setVolume(Float(val))
+                }
+            ), in: 0...1)
+                .frame(width: 260)
+            Image(systemName: "speaker.wave.3.fill")
+                .foregroundColor(.white)
+        }
+    }
+}
+
 @LogFunctions(.Widgets([.volumeModel]))
 struct VolumeWidgetView: View {
     @ObservedObject var config: Config
     @ObservedObject var model = GlobalModels.shared.volumeModel
     @State private var widgetFrame: CGRect = .zero
+    @State private var cachedMenu: NSMenu? = nil
 
     var body: some View {
         Button(action: { showVolumeMenu() }) {
@@ -50,7 +74,12 @@ struct VolumeWidgetView: View {
         guard let window = NSApp.windows.first(where: { $0 is OLoveBarWindow }),
               let contentView = window.contentView else { return }
         
-        let menu = Menu.buildNSMenu(from: menuItems())
+        // Создаём меню только один раз
+        if cachedMenu == nil {
+            cachedMenu = Menu.buildNSMenu(from: menuItems())
+        }
+        
+        guard let menu = cachedMenu else { return }
         
         // Вычисляем позицию меню по центру виджета
         let menuWidth: CGFloat = 320
@@ -76,25 +105,9 @@ struct VolumeWidgetView: View {
         
         // Слайдер громкости
         items.append(MenuItem(view:
-            HStack(spacing: 4) {
-                Image(systemName: "speaker.slash.fill")
-                    .foregroundColor(.white)
-                Slider(value: Binding(
-                    get: { model.level },
-                    set: { val in
-                        if model.isMuted && val > 0 {
-                            model.setMuted(false)
-                            model.isMuted = false
-                        }
-                        model.setVolume(val)
-                    }
-                ), in: 0...1)
-                    .frame(width: 260)
-                Image(systemName: "speaker.wave.3.fill")
-                    .foregroundColor(.white)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            VolumeSliderView(model: model)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
         ))
         
         items.append(.separator)
