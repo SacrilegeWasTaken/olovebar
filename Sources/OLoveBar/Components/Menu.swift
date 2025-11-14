@@ -30,6 +30,9 @@ struct Menu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         
+        // Очищаем старые targets перед созданием нового меню
+        MenuTargetStorage.shared.cleanup()
+        
         for item in items {
             menu.addItem(item.asNSMenuItem())
         }
@@ -123,7 +126,8 @@ struct MenuItem {
         if let action = action {
             let target = MenuItemTarget(action: action)
             menuItem.target = target
-            objc_setAssociatedObject(menuItem, "target", target, .OBJC_ASSOCIATION_RETAIN)
+            // Сохраняем target в глобальном storage
+            MenuTargetStorage.shared.store(target, for: menuItem)
         }
         
         if let submenuItems = submenu {
@@ -179,5 +183,23 @@ private class MenuItemTarget: NSObject {
     
     @objc func performAction() {
         action()
+    }
+}
+
+// MARK: - Target Storage
+
+/// Глобальное хранилище targets для предотвращения их освобождения
+@MainActor
+private class MenuTargetStorage {
+    static let shared = MenuTargetStorage()
+    private var targets: [ObjectIdentifier: MenuItemTarget] = [:]
+    
+    func store(_ target: MenuItemTarget, for menuItem: NSMenuItem) {
+        let id = ObjectIdentifier(menuItem)
+        targets[id] = target
+    }
+    
+    func cleanup() {
+        targets.removeAll()
     }
 }

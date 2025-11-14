@@ -99,8 +99,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if isAppFullscreen(pid: runningApp.processIdentifier) {
             mainWindow.orderOut(nil)
+            notchWindow.orderOut(nil)
         } else {
             mainWindow.orderFront(nil)
+            notchWindow.orderFront(nil)
         }
     }
 
