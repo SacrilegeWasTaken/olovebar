@@ -29,9 +29,9 @@ final class VolumeModel: ObservableObject {
     nonisolated(unsafe) private var storedDeviceID: AudioDeviceID = 0
 
     public init() {
+        level = getVolume()
         currentDeviceID = getDefaultOutputDevice()
         storedDeviceID = currentDeviceID
-        level = getVolume()
         outputDevices = getOutputDevices()
         setupListeners()
     }
@@ -69,17 +69,9 @@ final class VolumeModel: ObservableObject {
     }
 
     fileprivate func update() {
-        let oldLevel = level
         let newLevel = getVolume()
         let newMuted = getMuted()
 
-        debug("🔄 UPDATE called - current level: \(String(describing: oldLevel)), new level: \(newLevel)")
-        
-        // Пропускаем обновление если значение уже актуальное (избегаем дублирования после setVolume)
-        if let oldLevel = oldLevel, abs(oldLevel - newLevel) < 0.001 {
-            debug("🔄 UPDATE skipped - values are same")
-            return
-        }
         
         prevLevel = level
         isMuted = newMuted
@@ -93,8 +85,6 @@ final class VolumeModel: ObservableObject {
         outputDevices = getOutputDevices()
         currentDeviceID = getDefaultOutputDevice()
         storedDeviceID = currentDeviceID
-        
-        debug("🔄 UPDATE done - level is now: \(String(describing: level))")
     }
 
 
@@ -162,7 +152,6 @@ final class VolumeModel: ObservableObject {
         )
         let deviceID = getDefaultOutputDevice()
         AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
-        debug("📖 GET VOLUME from system: \(volume)")
         return volume
     }
 
@@ -190,7 +179,6 @@ final class VolumeModel: ObservableObject {
 
     @MainActor
     func setVolume(_ value: Float) {
-        debug("📝 SET VOLUME called with: \(value), current level: \(String(describing: level))")
         
         var volume = value
         var address = AudioObjectPropertyAddress(
@@ -200,11 +188,7 @@ final class VolumeModel: ObservableObject {
         )
         let deviceID = getDefaultOutputDevice()
         AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
-        
-        // Обновляем level СРАЗУ для мгновенной реакции UI
         level = value
-        
-        debug("📝 SET VOLUME done - wrote \(value) to system and updated level")
     }
 
     func setMuted(_ muted: Bool) {
