@@ -69,7 +69,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 
 # Installation
 
-**Note! I'm not enrolled Apple Developer yet, so you have to remove codesign checking attrubite manually**
+**Note! I'm not enrolled Apple Developer yet, so you have to remove codesign checking attribute manually**
 
 1. **Download the [latest release .dmg](https://github.com/SacrilegeWasTaken/olovebar/releases)**
 
