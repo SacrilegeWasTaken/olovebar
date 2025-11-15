@@ -3,7 +3,8 @@
 default: run
 
 setup:
-	@uv run Script/Setup.py || (echo "Setup failed" && exit 1)
+	swift package resolve
+	swift package update
 
 build:
 	swift build
@@ -26,11 +27,7 @@ install: bundle
 	@ditto ".build/OLoveBar.app" "/Applications/OLoveBar.app"
 	@echo "Installed. You may need to restart the app or Dock if an older process is running."
 
-release:
-	swift build -c release
 
-install-cli: setup release
-	uv run Script/Deploy.py
-
-uninstall:
-	uv run Script/Uninstall.py
+deploy: bundle
+	@uv run Script/Deploy.py --app .build/OLoveBar.app --output .build/OLoveBar.dmg
+	

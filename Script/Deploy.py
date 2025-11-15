@@ -1,37 +1,73 @@
 #!/usr/bin/env python3
+
+import os
 import subprocess
-import sys
+import shutil
+import argparse
 from pathlib import Path
 
-def main():
-    project_root = Path(__file__).parent.parent
-    binary_name = "olovebar"
-    install_path = Path("/usr/local/bin") / binary_name
+def create_dmg(app_path, dmg_path):
+    # Convert to Path objects
+    app_path = Path(app_path)
+    dmg_path = Path(dmg_path)
     
-    print("Building release binary...")
-    result = subprocess.run(
-        ["swift", "build", "-c", "release"],
-        cwd=project_root,
-        capture_output=True,
-        text=True
-    )
+    # Check if app exists
+    if not app_path.exists():
+        print(f"Error: {app_path} not found.")
+        return False
     
-    if result.returncode != 0:
-        print(f"Build failed:\n{result.stderr}", file=sys.stderr)
-        sys.exit(1)
+    # Ensure output directory exists
+    dmg_path.parent.mkdir(parents=True, exist_ok=True)
     
-    binary_path = project_root / ".build" / "release" / binary_name
+    # Ensure .dmg extension
+    if not dmg_path.suffix == '.dmg':
+        dmg_path = dmg_path.with_suffix('.dmg')
     
-    if not binary_path.exists():
-        print(f"Binary not found at {binary_path}", file=sys.stderr)
-        sys.exit(1)
+    # Clean up old DMG
+    if dmg_path.exists():
+        os.remove(dmg_path)
+        print(f"Removed old {dmg_path.name}")
     
-    print(f"Installing to {install_path}...")
-    subprocess.run(["sudo", "cp", str(binary_path), str(install_path)], check=True)
-    subprocess.run(["sudo", "chmod", "+x", str(install_path)], check=True)
+    # Create temporary directory
+    temp_dir = dmg_path.parent / "temp_dmg"
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+    temp_dir.mkdir()
     
-    print(f"✓ {binary_name} installed successfully")
-    print(f"Run with: {binary_name}")
+    # Copy app to temp directory
+    shutil.copytree(app_path, temp_dir / app_path.name)
+    print(f"Copied {app_path.name} to temp directory")
+    
+    # Create symlink to Applications
+    applications_link = temp_dir / "Applications"
+    os.symlink("/Applications", applications_link)
+    print("Created Applications symlink")
+    
+    # Create DMG
+    try:
+        subprocess.run([
+            "hdiutil", "create",
+            "-volname", dmg_path.stem,
+            "-srcfolder", str(temp_dir),
+            "-ov",
+            "-format", "UDZO",
+            str(dmg_path)
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error creating DMG: {e}")
+        return False
+    finally:
+        # Clean up temp directory
+        shutil.rmtree(temp_dir)
+    
+    print(f"Successfully created {dmg_path}")
+    return True
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description='Create DMG from .app bundle')
+    parser.add_argument('--app', required=True, help='Path to .app bundle')
+    parser.add_argument('--output', required=True, help='Output path for DMG file')
+    
+    args = parser.parse_args()
+    
+    create_dmg(args.app, args.output)

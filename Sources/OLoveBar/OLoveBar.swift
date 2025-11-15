@@ -1,5 +1,5 @@
 import Cocoa
-import ApplicationServices
+@preconcurrency import ApplicationServices
 import SwiftUI
 
 class SilentApp: NSApplication {
@@ -28,17 +28,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         subscribeNotifications()
     }
 
-    private func requestAccessibilityIfNeeded() {
-        // Prompt the system Accessibility permission dialog if needed.
-        // Use the known key name for the AX trusted prompt to avoid Unmanaged/ concurrency issues
-        // First check if we're already trusted
-        if AXIsProcessTrusted() { return }
 
-        // Ask the system to show the Accessibility prompt once
-        let options = ["AXTrustedCheckOptionPrompt" as CFString: kCFBooleanTrue] as CFDictionary
+    func requestAccessibilityIfNeeded() {
+        if AXIsProcessTrusted() {
+            return
+        }
+
+        let options: NSDictionary = [
+            kAXTrustedCheckOptionPrompt.takeRetainedValue() as NSString: true
+        ]
+
         AXIsProcessTrustedWithOptions(options)
-
     }
+
 
     @MainActor
     private func setupWindows() {

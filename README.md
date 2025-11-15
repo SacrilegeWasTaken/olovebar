@@ -90,41 +90,20 @@ Left-click on the Apple logo to toggle the background style between **Glass** an
 
 ---
 
-# Installation by downloading the binary
+# Installation
 
-**PLEASE NOTE THAT I CANNOT AFFORD APPLE DEVELOPER PROGRAM ENROLLMENT RIGHT NOW SO YOU HAVE TO BUILD IT MANUALLY**
+**Note! I'm not enrolled Apple Developer yet, so you have to remove codesign checking attrubite manually**
 
-1. **Download the [latest release binary](https://github.com/SacrilegeWasTaken/olovebar/releases). DEPRECATED!**
+1. **Download the [latest release .dmg](https://github.com/SacrilegeWasTaken/olovebar/releases)**
 
-2. **Paste following command into the terminal**
+2. **Open .dmg and drag-n-drop OLoveBar into Applications folder link**
+
+3. **Run the following into the terminal**
 ```sh
-sudo xattr -d com.apple.quarantine /path/to/olovebar
-```
-You can drag-n-drop binary into the terminal to insert the path.
-I'll setup signing later. Have not purchased Apple Developer yet.
----
-
-## Installation by building the source
-
-1. **Clone the repository:**
-
-```sh
-git clone https://github.com/SacrilegeWasTaken/olovebar.git
-cd olovebar
+sudo xattr -d com.apple.quarantine /Applications/OLoveBar.app
 ```
 
-2. **Install to system:**
-
-```sh
-make install 
-```
-
-This will:
-- Check and install dependencies (Homebrew, Swift, uv)
-- Build the release binary
-- Install to `/usr/local/bin/olovebar`
-
-3. **Add to `~/.config/aerospace/aerospace.toml`**
+4. **Add the following into `~/.config/aerospace/aerospace.toml`**
 ```toml
 exec-on-workspace-change = [
   "/bin/zsh",
@@ -132,27 +111,3 @@ exec-on-workspace-change = [
   "curl -s localhost:43551"
 ]
 ```
-
-4. **Run:**
-
-Run the OLoveBar application bundle from Applications folder.
-
----
-
-## Development
-
-```sh
-make setup    # Check/install dependencies
-make build    # Build debug version
-make run      # Build and run debug version
-make release  # Build release version
-```
-
----
-
-## Uninstall
-
-```sh
-make uninstall
-```
-
