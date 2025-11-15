@@ -77,7 +77,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 
 3. **Run the following into the terminal**
 ```sh
-sudo xattr -d com.apple.quarantine /Applications/OLoveBar.app
+sudo xattr -rd com.apple.quarantine /Applications/OLoveBar.app
 ```
 
 4. **Add the following into `~/.config/aerospace/aerospace.toml`**
