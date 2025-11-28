@@ -10,7 +10,7 @@ struct ActiveAppWidgetView: View {
     @ObservedObject var activeAppModel = GlobalModels.shared.activeAppModel
 
 
-    @State  private var showMenuBar: Bool = false
+    @State private var showMenuBar: Bool = false
     @State private var showSubMenu: Bool = false
     @State private var subMenuID: UUID!
 
