@@ -12,6 +12,8 @@ build:
 run: build
 	./.build/debug/olovebar
 
+release:
+	swift build -c release
 
 bundle: release
 	@uv run Script/Bundle.py .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar

@@ -9,7 +9,6 @@ let package = Package(
         .macOS(.v26)
     ],
     products: [
-        // 👇 Макросы теперь доступны как отдельный API-модуль
         .library(name: "MacroAPI", targets: ["MacroAPI"]),
         .executable(name: "olovebar", targets: ["OLoveBar"])
     ],
@@ -18,7 +17,7 @@ let package = Package(
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.5.0")
     ],
     targets: [
-        // MARK: - Macro Plugin (реализация)
+        // MARK: - Macro Plugin
         .macro(
             name: "MacroPlugin",
             dependencies: [
@@ -28,7 +27,7 @@ let package = Package(
             ]
         ),
 
-        // MARK: - Macro API (интерфейс)
+        // MARK: - Macro API 
         .target(
             name: "MacroAPI",
             dependencies: [
@@ -45,7 +44,7 @@ let package = Package(
 
 
 
-        // MARK: - Исполняемый таргет
+        // MARK: - Executable
         .executableTarget(
             name: "OLoveBar",
             dependencies: ["Utilities", "MacroAPI", "TOMLKit"]

@@ -51,8 +51,6 @@ struct NotesWidgetView: View {
     }
 }
 
-// MARK: - Notes Menu View (Pure AppKit)
-
 @MainActor
 final class NotesMenuView {
     
@@ -60,31 +58,26 @@ final class NotesMenuView {
         let menu = NSMenu()
         menu.autoenablesItems = false
         
-        // Title "Notes"
         let titleItem = NSMenuItem()
         titleItem.view = createTitleView(text: "Notes")
         menu.addItem(titleItem)
         
-        // Month label
         let monthItem = NSMenuItem()
         monthItem.view = createMonthLabel(model: model)
         menu.addItem(monthItem)
         
-        // Date picker
         let datePickerItem = NSMenuItem()
         datePickerItem.view = createDatePicker(model: model)
         menu.addItem(datePickerItem)
         
         menu.addItem(.separator())
         
-        // Notes list container
         let notesItem = NSMenuItem()
         notesItem.view = createNotesList(model: model)
         menu.addItem(notesItem)
         
         menu.addItem(.separator())
         
-        // Input field
         let inputItem = NSMenuItem()
         inputItem.view = createInputField(model: model)
         menu.addItem(inputItem)
@@ -118,7 +111,6 @@ final class NotesMenuView {
         
         container.addSubview(label)
         
-        // Subscribe to model changes
         let subscription = MonthLabelSubscription(label: label, model: model)
         objc_setAssociatedObject(container, "subscription", subscription, .OBJC_ASSOCIATION_RETAIN)
         
@@ -160,7 +152,6 @@ final class NotesMenuView {
         
         scrollView.documentView = documentView
         
-        // Scroll to today
         let todayIndex = model.todayIndex()
         let scrollX = max(0, CGFloat(todayIndex) * (buttonWidth + buttonSpacing) - scrollView.frame.width / 2 + buttonWidth / 2)
         scrollView.contentView.scroll(to: NSPoint(x: scrollX, y: 0))
@@ -194,8 +185,6 @@ final class NotesMenuView {
     }
 }
 
-// MARK: - Month Label Subscription
-
 private class MonthLabelSubscription: NSObject {
     private var cancellable: AnyCancellable?
     
@@ -213,8 +202,6 @@ private class MonthLabelSubscription: NSObject {
         }
     }
 }
-
-// MARK: - Date Picker Button
 
 private class DatePickerButton: NSButton {
     let date: Date
@@ -240,7 +227,6 @@ private class DatePickerButton: NSButton {
         
         updateAppearance()
         
-        // Subscribe to selectedDate changes
         self.cancellable = model.$selectedDate.sink { [weak self] _ in
             Task { @MainActor in
                 self?.updateAppearance()
@@ -278,8 +264,6 @@ private class DatePickerButton: NSButton {
     }
 }
 
-// MARK: - Notes List Container
-
 private class NotesListContainer: NSView {
     let model: NotesModel
     private var cancellables = Set<AnyCancellable>()
@@ -292,7 +276,6 @@ private class NotesListContainer: NSView {
         
         super.init(frame: NSRect(x: 0, y: 0, width: 320, height: 150))
         
-        // Setup scroll view
         let scrollView = NSScrollView(frame: bounds)
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
@@ -315,7 +298,6 @@ private class NotesListContainer: NSView {
         
         rebuildNotes()
         
-        // Subscribe to changes
         model.$notes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -337,7 +319,6 @@ private class NotesListContainer: NSView {
     
     @MainActor
     private func rebuildNotes() {
-        // Remove all existing views
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         let notes = model.notesForSelectedDate()
@@ -374,7 +355,6 @@ private class NotesListContainer: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         
-        // Checkbox
         let checkbox = NSButton(frame: NSRect(x: 0, y: 0, width: 18, height: 18))
         checkbox.setButtonType(.switch)
         checkbox.title = ""
@@ -386,7 +366,6 @@ private class NotesListContainer: NSView {
         checkbox.action = #selector(NoteCheckboxTarget.toggled(_:))
         objc_setAssociatedObject(checkbox, "target", checkboxTarget, .OBJC_ASSOCIATION_RETAIN)
         
-        // Text label
         let label = NSTextField(labelWithString: note.text)
         label.font = .systemFont(ofSize: 13)
         label.lineBreakMode = .byTruncatingTail
@@ -422,8 +401,6 @@ private class NotesListContainer: NSView {
         return container
     }
 }
-
-// MARK: - Targets
 
 private class NoteCheckboxTarget: NSObject {
     let noteId: UUID

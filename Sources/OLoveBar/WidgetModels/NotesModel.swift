@@ -34,8 +34,6 @@ final class NotesModel: ObservableObject {
         load()
     }
     
-    // MARK: - Date Management
-    
     var dateString: String {
         dateFormatter.string(from: selectedDate)
     }
@@ -49,17 +47,14 @@ final class NotesModel: ObservableObject {
         let today = calendar.startOfDay(for: Date())
         var dates: [Date] = []
         
-        // 30 days back
         for i in (1...30).reversed() {
             if let date = calendar.date(byAdding: .day, value: -i, to: today) {
                 dates.append(date)
             }
         }
         
-        // Today
         dates.append(today)
         
-        // 10 days forward
         for i in 1...10 {
             if let date = calendar.date(byAdding: .day, value: i, to: today) {
                 dates.append(date)
@@ -70,10 +65,8 @@ final class NotesModel: ObservableObject {
     }
     
     func todayIndex() -> Int {
-        30 // 30 days back, so today is at index 30
+        30
     }
-    
-    // MARK: - Notes Management
     
     func notesForSelectedDate() -> [Note] {
         notes[dateString] ?? []
@@ -98,8 +91,6 @@ final class NotesModel: ObservableObject {
         notes[dateString] = dateNotes
         save()
     }
-    
-    // MARK: - Persistence
     
     func load() {
         guard FileManager.default.fileExists(atPath: path) else {
