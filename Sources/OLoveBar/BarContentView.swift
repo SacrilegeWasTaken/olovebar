@@ -29,6 +29,7 @@ struct BarContentView: View {
                 Spacer()
                 
                 HStack(spacing: config.leftSpacing) {
+                    NotesWidgetView(config: config)
                     WiFiWidgetView(config: config)
                     BatteryWidgetView(config: config)
                     LanguageWidgetView(config: config)

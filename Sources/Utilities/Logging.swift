@@ -60,6 +60,7 @@ public enum WidgetSubmodules: Sendable, Equatable {
     case batteryModel
     case dateTimeModel
     case languageModel
+    case notesModel
     case volumeModel
     case widgetModel
     case wifiModel

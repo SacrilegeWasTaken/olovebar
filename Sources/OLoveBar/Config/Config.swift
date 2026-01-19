@@ -27,6 +27,7 @@ public final class Config: ObservableObject {
     @Published public var batteryWidth: CGFloat = 70
     @Published public var languageWidth: CGFloat = 48
     @Published public var volumeWidth: CGFloat = 48
+    @Published public var notesWidth: CGFloat = 48
     @Published public var rightSpacing: CGFloat = 16
     @Published public var widgetGlassVariant: Int = 11
     @Published public var leftSpacing: CGFloat = 8
@@ -117,6 +118,7 @@ public final class Config: ObservableObject {
                 ("battery_width", { self.batteryWidth = CGFloat($0) }),
                 ("language_width", { self.languageWidth = CGFloat($0) }),
                 ("volume_width", { self.volumeWidth = CGFloat($0) }),
+                ("notes_width", { self.notesWidth = CGFloat($0) }),
                 ("right_spacing", { self.rightSpacing = CGFloat($0) }),
                 ("left_spacing", { self.leftSpacing = CGFloat($0) })
             ],
@@ -194,6 +196,7 @@ public final class Config: ObservableObject {
             batteryWidth: batteryWidth,
             languageWidth: languageWidth,
             volumeWidth: volumeWidth,
+            notesWidth: notesWidth,
             rightSpacing: rightSpacing,
             leftSpacing: leftSpacing,
             widgetGlassVariant: widgetGlassVariant,
@@ -228,6 +231,7 @@ public final class Config: ObservableObject {
                 "battery_width": Double(snapshot.batteryWidth),
                 "language_width": Double(snapshot.languageWidth),
                 "volume_width": Double(snapshot.volumeWidth),
+                "notes_width": Double(snapshot.notesWidth),
                 "right_spacing": Double(snapshot.rightSpacing),
                 "left_spacing": Double(snapshot.leftSpacing),
                 "glass_variant": snapshot.widgetGlassVariant,

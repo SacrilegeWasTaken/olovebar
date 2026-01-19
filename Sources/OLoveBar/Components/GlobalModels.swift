@@ -11,6 +11,7 @@ class GlobalModels {
     lazy var activeAppModel = ActiveAppModel()
     lazy var dateTimeModel = DateTimeModel()
     lazy var playerModel = PlayerModel()
+    lazy var notesModel = NotesModel()
     
     private init() {}
 }
