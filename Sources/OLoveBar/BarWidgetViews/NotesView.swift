@@ -169,7 +169,7 @@ final class NotesMenuView {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 36))
         
         let textField = NSTextField(frame: NSRect(x: 12, y: 6, width: 296, height: 24))
-        textField.placeholderString = "Add a note..."
+        textField.placeholderString = "Add a note title..."
         textField.font = .systemFont(ofSize: 13)
         textField.bezelStyle = .roundedBezel
         textField.focusRingType = .none
@@ -268,6 +268,7 @@ private class NotesListContainer: NSView {
     let model: NotesModel
     private var cancellables = Set<AnyCancellable>()
     private let stackView: NSStackView
+    private var expandedNotes = Set<UUID>()
     
     @MainActor
     init(model: NotesModel) {
@@ -319,9 +320,9 @@ private class NotesListContainer: NSView {
     
     @MainActor
     private func rebuildNotes() {
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        
         let notes = model.notesForSelectedDate()
+        
+        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         if notes.isEmpty {
             let emptyLabel = NSTextField(labelWithString: "No notes for this day")
@@ -352,6 +353,7 @@ private class NotesListContainer: NSView {
     
     @MainActor
     private func createNoteRow(note: Note) -> NSView {
+        let isExpanded = expandedNotes.contains(note.id)
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
         
@@ -366,39 +368,147 @@ private class NotesListContainer: NSView {
         checkbox.action = #selector(NoteCheckboxTarget.toggled(_:))
         objc_setAssociatedObject(checkbox, "target", checkboxTarget, .OBJC_ASSOCIATION_RETAIN)
         
-        let label = NSTextField(labelWithString: note.text)
-        label.font = .systemFont(ofSize: 13)
-        label.lineBreakMode = .byTruncatingTail
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.alignment = .left
+        let expandButton = NSButton(frame: NSRect(x: 0, y: 0, width: 16, height: 16))
+        expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.down" : "chevron.right", accessibilityDescription: nil)
+        expandButton.imagePosition = .imageOnly
+        expandButton.isBordered = false
+        expandButton.contentTintColor = .secondaryLabelColor
+        expandButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        let expandTarget = NoteExpandTarget(noteId: note.id, container: self)
+        expandButton.target = expandTarget
+        expandButton.action = #selector(NoteExpandTarget.toggle(_:))
+        objc_setAssociatedObject(expandButton, "target", expandTarget, .OBJC_ASSOCIATION_RETAIN)
+        
+        let titleLabel = NSTextField(labelWithString: note.title)
+        titleLabel.font = .systemFont(ofSize: 13)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.alignment = .left
         
         if note.completed {
-            label.textColor = .tertiaryLabelColor
-            let attributed = NSMutableAttributedString(string: note.text)
-            attributed.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: note.text.count))
-            attributed.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: NSRange(location: 0, length: note.text.count))
-            label.attributedStringValue = attributed
+            titleLabel.textColor = .tertiaryLabelColor
+            let attributed = NSMutableAttributedString(string: note.title)
+            attributed.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: note.title.count))
+            attributed.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: NSRange(location: 0, length: note.title.count))
+            titleLabel.attributedStringValue = attributed
         } else {
-            label.textColor = .labelColor
+            titleLabel.textColor = .labelColor
         }
         
-        container.addSubview(checkbox)
-        container.addSubview(label)
+        let deleteButton = NSButton(frame: NSRect(x: 0, y: 0, width: 20, height: 20))
+        deleteButton.image = NSImage(systemSymbolName: "trash", accessibilityDescription: nil)
+        deleteButton.imagePosition = .imageOnly
+        deleteButton.isBordered = false
+        deleteButton.bezelStyle = .texturedRounded
+        deleteButton.contentTintColor = .secondaryLabelColor
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
         
-        NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: 304),
-            container.heightAnchor.constraint(equalToConstant: 28),
+        let deleteTarget = NoteDeleteTarget(noteId: note.id, model: model)
+        deleteButton.target = deleteTarget
+        deleteButton.action = #selector(NoteDeleteTarget.delete(_:))
+        objc_setAssociatedObject(deleteButton, "target", deleteTarget, .OBJC_ASSOCIATION_RETAIN)
+        
+        container.addSubview(checkbox)
+        container.addSubview(expandButton)
+        container.addSubview(titleLabel)
+        container.addSubview(deleteButton)
+        
+        if isExpanded {
+            let scrollView = NSScrollView()
+            scrollView.hasVerticalScroller = true
+            scrollView.autohidesScrollers = true
+            scrollView.borderType = .bezelBorder
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
             
-            checkbox.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            checkbox.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            checkbox.widthAnchor.constraint(equalToConstant: 18),
+            let bodyTextView = NSTextView()
+            bodyTextView.string = note.body
+            bodyTextView.font = .systemFont(ofSize: 12)
+            bodyTextView.isEditable = true
+            bodyTextView.isSelectable = true
+            bodyTextView.isVerticallyResizable = true
+            bodyTextView.isHorizontallyResizable = false
+            bodyTextView.textContainer?.containerSize = NSSize(width: 280, height: CGFloat.greatestFiniteMagnitude)
+            bodyTextView.textContainer?.widthTracksTextView = true
             
-            label.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
-            label.centerYAnchor.constraint(equalTo: container.centerYAnchor)
-        ])
+            scrollView.documentView = bodyTextView
+            
+            let bodyTarget = NoteBodyTarget(noteId: note.id, model: model, textView: bodyTextView)
+            NotificationCenter.default.addObserver(
+                bodyTarget,
+                selector: #selector(NoteBodyTarget.textDidEndEditing(_:)),
+                name: NSText.didEndEditingNotification,
+                object: bodyTextView
+            )
+            objc_setAssociatedObject(bodyTextView, "target", bodyTarget, .OBJC_ASSOCIATION_RETAIN)
+            
+            container.addSubview(scrollView)
+            
+            NSLayoutConstraint.activate([
+                container.widthAnchor.constraint(equalToConstant: 304),
+                
+                checkbox.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                checkbox.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+                checkbox.widthAnchor.constraint(equalToConstant: 18),
+                checkbox.heightAnchor.constraint(equalToConstant: 18),
+                
+                expandButton.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
+                expandButton.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+                expandButton.widthAnchor.constraint(equalToConstant: 16),
+                expandButton.heightAnchor.constraint(equalToConstant: 16),
+                
+                titleLabel.leadingAnchor.constraint(equalTo: expandButton.trailingAnchor, constant: 4),
+                titleLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
+                titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
+                titleLabel.heightAnchor.constraint(equalToConstant: 16),
+                
+                scrollView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                scrollView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+                scrollView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
+                scrollView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4),
+                scrollView.heightAnchor.constraint(equalToConstant: 80),
+                
+                deleteButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+                deleteButton.topAnchor.constraint(equalTo: container.topAnchor, constant: 4),
+                deleteButton.widthAnchor.constraint(equalToConstant: 20),
+                deleteButton.heightAnchor.constraint(equalToConstant: 20)
+            ])
+        } else {
+            NSLayoutConstraint.activate([
+                container.widthAnchor.constraint(equalToConstant: 304),
+                container.heightAnchor.constraint(equalToConstant: 28),
+                
+                checkbox.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+                checkbox.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                checkbox.widthAnchor.constraint(equalToConstant: 18),
+                
+                expandButton.leadingAnchor.constraint(equalTo: checkbox.trailingAnchor, constant: 4),
+                expandButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                expandButton.widthAnchor.constraint(equalToConstant: 16),
+                expandButton.heightAnchor.constraint(equalToConstant: 16),
+                
+                titleLabel.leadingAnchor.constraint(equalTo: expandButton.trailingAnchor, constant: 4),
+                titleLabel.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8),
+                titleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                
+                deleteButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+                deleteButton.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                deleteButton.widthAnchor.constraint(equalToConstant: 20),
+                deleteButton.heightAnchor.constraint(equalToConstant: 20)
+            ])
+        }
         
         return container
+    }
+    
+    @MainActor
+    func toggleNoteExpansion(_ noteId: UUID) {
+        if expandedNotes.contains(noteId) {
+            expandedNotes.remove(noteId)
+        } else {
+            expandedNotes.insert(noteId)
+        }
+        rebuildNotes()
     }
 }
 
@@ -414,6 +524,61 @@ private class NoteCheckboxTarget: NSObject {
     @MainActor
     @objc func toggled(_ sender: NSButton) {
         model.toggleNote(id: noteId)
+    }
+}
+
+private class NoteDeleteTarget: NSObject {
+    let noteId: UUID
+    let model: NotesModel
+    
+    init(noteId: UUID, model: NotesModel) {
+        self.noteId = noteId
+        self.model = model
+    }
+    
+    @MainActor
+    @objc func delete(_ sender: NSButton) {
+        model.deleteNote(id: noteId)
+    }
+}
+
+private class NoteExpandTarget: NSObject {
+    let noteId: UUID
+    weak var container: NotesListContainer?
+    
+    init(noteId: UUID, container: NotesListContainer) {
+        self.noteId = noteId
+        self.container = container
+    }
+    
+    @MainActor
+    @objc func toggle(_ sender: NSButton) {
+        container?.toggleNoteExpansion(noteId)
+    }
+}
+
+private class NoteBodyTarget: NSObject {
+    let noteId: UUID
+    let model: NotesModel
+    weak var textView: NSTextView?
+    private var saveTimer: Timer?
+    
+    init(noteId: UUID, model: NotesModel, textView: NSTextView) {
+        self.noteId = noteId
+        self.model = model
+        self.textView = textView
+    }
+    
+    @MainActor
+    @objc func textDidChange(_ notification: Notification) {
+    }
+    
+    @MainActor
+    @objc func textDidEndEditing(_ notification: Notification) {
+        saveTimer?.invalidate()
+        if let textView = notification.object as? NSTextView {
+            model.updateNoteBody(id: noteId, body: textView.string)
+        }
     }
 }
 

@@ -5,12 +5,14 @@ import MacroAPI
 
 struct Note: Identifiable, Equatable {
     let id: UUID
-    var text: String
+    var title: String
+    var body: String
     var completed: Bool
     
-    init(id: UUID = UUID(), text: String, completed: Bool = false) {
+    init(id: UUID = UUID(), title: String, body: String = "", completed: Bool = false) {
         self.id = id
-        self.text = text
+        self.title = title
+        self.body = body
         self.completed = completed
     }
 }
@@ -72,11 +74,11 @@ final class NotesModel: ObservableObject {
         notes[dateString] ?? []
     }
     
-    func addNote(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    func addNote(_ title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        let note = Note(text: trimmed)
+        let note = Note(title: trimmed)
         var dateNotes = notes[dateString] ?? []
         dateNotes.append(note)
         notes[dateString] = dateNotes
@@ -89,6 +91,32 @@ final class NotesModel: ObservableObject {
         
         dateNotes[index].completed.toggle()
         notes[dateString] = dateNotes
+        save()
+    }
+    
+    func updateNoteBody(id: UUID, body: String) {
+        guard var dateNotes = notes[dateString],
+              let index = dateNotes.firstIndex(where: { $0.id == id }) else { return }
+        
+        if dateNotes[index].body == body {
+            return
+        }
+        
+        dateNotes[index].body = body
+        notes[dateString] = dateNotes
+        save()
+    }
+    
+    func deleteNote(id: UUID) {
+        guard var dateNotes = notes[dateString],
+              let index = dateNotes.firstIndex(where: { $0.id == id }) else { return }
+        
+        dateNotes.remove(at: index)
+        if dateNotes.isEmpty {
+            notes.removeValue(forKey: dateString)
+        } else {
+            notes[dateString] = dateNotes
+        }
         save()
     }
     
@@ -117,10 +145,12 @@ final class NotesModel: ObservableObject {
                     guard let noteTable = noteValue.table,
                           let idString = noteTable["id"]?.string,
                           let id = UUID(uuidString: idString),
-                          let text = noteTable["text"]?.string,
                           let completed = noteTable["completed"]?.bool else { continue }
                     
-                    dateNotes.append(Note(id: id, text: text, completed: completed))
+                    let title = noteTable["title"]?.string ?? noteTable["text"]?.string ?? ""
+                    let body = noteTable["body"]?.string ?? ""
+                    
+                    dateNotes.append(Note(id: id, title: title, body: body, completed: completed))
                 }
                 
                 if !dateNotes.isEmpty {
@@ -160,7 +190,8 @@ final class NotesModel: ObservableObject {
                 let noteTables: [TOMLTable] = dateNotes.map { note in
                     [
                         "id": note.id.uuidString,
-                        "text": note.text,
+                        "title": note.title,
+                        "body": note.body,
                         "completed": note.completed
                     ]
                 }
