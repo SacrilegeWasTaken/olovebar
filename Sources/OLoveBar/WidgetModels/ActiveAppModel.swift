@@ -34,6 +34,16 @@ class ActiveAppModel: ObservableObject {
     private var menuLoadTask: Task<Void, Never>?
     private var lastLoadedBundleID: String = ""
 
+    private let maxLaunchStatusChecks = 5
+
+    private let launchStatusCheckDelay: Duration = .milliseconds(500)
+
+    private let maxStabilizationAttempts = 15
+
+    private let stabilizationDelay: Duration = .milliseconds(150)
+  
+    private let requiredStableSnapshots = 3
+
 
     init() {
         update()
@@ -87,29 +97,90 @@ class ActiveAppModel: ObservableObject {
         if appChanged {
             menuItems = []
             lastLoadedBundleID = ""
+
+            // Быстрый первый снимок меню для мгновенного отображения.
+            let initialItems = extractMenuItems()
+            if !initialItems.isEmpty {
+                menuItems = initialItems
+                lastLoadedBundleID = bundleID
+                debug("Initial menu snapshot loaded for \(appName), items: \(initialItems.count)")
+            }
         }
 
         ensureMenuItemsLoaded(force: forceReload || appChanged)
     }
 
     func ensureMenuItemsLoaded(force: Bool = false) {
+        // Не перезапускаем загрузчик без необходимости.
         guard force || menuItems.isEmpty || bundleID != lastLoadedBundleID else { return }
+
+        // Если загрузчик уже работает и меню не пустое, не стартуем новый.
+        if menuLoadTask != nil, !menuItems.isEmpty, bundleID == lastLoadedBundleID, !force {
+            return
+        }
 
         menuLoadTask?.cancel()
         menuLoadTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            while true {
-                debug("Getting app menus")
+
+            let currentBundle = self.bundleID
+
+            // Пытаемся найти запущенное приложение с этим bundle ID.
+            let app = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == currentBundle }
+
+            // Фаза ожидания завершения запуска (если нужно).
+            if let app {
+                for _ in 0..<self.maxLaunchStatusChecks {
+                    guard !Task.isCancelled else { return }
+                    if app.isFinishedLaunching { break }
+                    try? await Task.sleep(for: self.launchStatusCheckDelay)
+                }
+            }
+
+            var lastSnapshot: [MenuItemData] = []
+            var stableCount = 0
+
+            for attempt in 0..<self.maxStabilizationAttempts {
+                guard !Task.isCancelled else { return }
+
                 let items = self.extractMenuItems()
+
                 if !items.isEmpty {
-                    self.menuItems = items
-                    self.lastLoadedBundleID = self.bundleID
-                    debug("Menu cache updated: \(self.appName), MenuItems count: \(items.count)")
-                    break
+                    let nonSeparatorCount = items.filter { !$0.isSeparator }.count
+                    let hasSubmenu = items.contains { ($0.submenu?.isEmpty == false) }
+
+                    // Если меню ещё пустое (быстрый снимок не сработал), заполняем его сразу.
+                    if self.menuItems.isEmpty {
+                        self.menuItems = items
+                        self.lastLoadedBundleID = self.bundleID
+                        debug("Menu snapshot filled during stabilization for \(self.appName), items: \(items.count)")
+                    }
+
+                    if !lastSnapshot.isEmpty && items.count == lastSnapshot.count {
+                        stableCount += 1
+                    } else {
+                        stableCount = 1
+                        lastSnapshot = items
+                    }
+
+                    if stableCount >= self.requiredStableSnapshots,
+                       (nonSeparatorCount >= 2 || hasSubmenu) {
+                        self.menuItems = items
+                        self.lastLoadedBundleID = self.bundleID
+                        debug("Menu cache stabilized for \(self.appName), items: \(items.count) after \(attempt + 1) attempts")
+                        return
+                    }
                 }
 
-                guard !Task.isCancelled else { return }
-                try? await Task.sleep(for: .milliseconds(100))
+                try? await Task.sleep(for: self.stabilizationDelay)
+            }
+
+            if !lastSnapshot.isEmpty {
+                info("⚠️ Menu stabilization timed out for \(self.appName), using last snapshot with \(lastSnapshot.count) items")
+                self.menuItems = lastSnapshot
+                self.lastLoadedBundleID = self.bundleID
+            } else {
+                info("⚠️ Menu load failed for \(self.appName): no menu items detected after stabilization attempts")
             }
         }
     }

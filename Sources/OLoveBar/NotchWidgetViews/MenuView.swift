@@ -147,8 +147,19 @@ fileprivate struct MenuButtonView: View {
 
     private func showSubmenu() {
         guard let submenu = item.submenu, !submenu.isEmpty else { return }
-        
-        let menu = NSMenuHosting.menu(items: submenu) { [activeAppModel] subitem in
+
+        // Подсвечиваем текущий пункт как активный на время работы меню.
+        menuState.resetPath()
+        menuState.addToPath(item.id)
+
+        let helpTitles = ["Help", "Справка"]
+        let isHelpMenu = helpTitles.contains(item.title)
+
+        let menu = NSMenuHosting.menu(
+            items: submenu,
+            rootItems: activeAppModel.menuItems,
+            isHelpMenu: isHelpMenu
+        ) { [activeAppModel] subitem in
             activeAppModel.performAction(for: subitem)
         }
         
@@ -159,6 +170,9 @@ fileprivate struct MenuButtonView: View {
             let x = widgetMiddle - (menuWidth / 2)
             menu.popUp(positioning: nil, at: CGPoint(x: x, y: y), in: contentView)
         }
+
+        // После закрытия меню снимаем подсветку с верхнего пункта.
+        menuState.setMenuCloseTaskSchedule()
     }
 }
 
