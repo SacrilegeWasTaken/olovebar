@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import CoreAudio
+import AudioToolbox
 import MacroAPI
 
 struct AudioDevice: Identifiable, Equatable {
@@ -52,12 +53,11 @@ final class VolumeModel: ObservableObject {
     private func setupListeners() {
         let deviceID = getDefaultOutputDevice()
         addListener(deviceID: deviceID, selector: kAudioDevicePropertyVolumeScalar)
+        addListener(deviceID: deviceID, selector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume)
         addListener(deviceID: deviceID, selector: kAudioDevicePropertyMute)
         addListener(deviceID: AudioObjectID(kAudioObjectSystemObject), selector: kAudioHardwarePropertyDefaultOutputDevice)
         addListener(deviceID: AudioObjectID(kAudioObjectSystemObject), selector: kAudioHardwarePropertyDevices)
     }
-
-
 
     private func addListener(deviceID: AudioDeviceID, selector: AudioObjectPropertySelector) {
         var address = AudioObjectPropertyAddress(
@@ -68,7 +68,29 @@ final class VolumeModel: ObservableObject {
         AudioObjectAddPropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
     }
 
+    private func removeListener(deviceID: AudioDeviceID, selector: AudioObjectPropertySelector) {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: selector == kAudioHardwarePropertyDefaultOutputDevice || selector == kAudioHardwarePropertyDevices ? kAudioObjectPropertyScopeGlobal : kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+    }
+
     fileprivate func update() {
+        // Если системное устройство вывода сменилось (например, подключили AirPods),
+        // перекидываем слушатели громкости/мута на новый девайс.
+        let newDefaultDevice = getDefaultOutputDevice()
+        if newDefaultDevice != storedDeviceID, storedDeviceID != 0 {
+            removeListener(deviceID: storedDeviceID, selector: kAudioDevicePropertyVolumeScalar)
+            removeListener(deviceID: storedDeviceID, selector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume)
+            removeListener(deviceID: storedDeviceID, selector: kAudioDevicePropertyMute)
+            addListener(deviceID: newDefaultDevice, selector: kAudioDevicePropertyVolumeScalar)
+            addListener(deviceID: newDefaultDevice, selector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume)
+            addListener(deviceID: newDefaultDevice, selector: kAudioDevicePropertyMute)
+            storedDeviceID = newDefaultDevice
+        }
+
         let newLevel = getVolume()
         let newMuted = getMuted()
 
@@ -99,6 +121,12 @@ final class VolumeModel: ObservableObject {
         AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &deviceAddress, 0, nil, &deviceSize, &deviceID)
         info("Default output device: \(deviceID)")
         return deviceID
+    }
+
+    /// Активное устройство, с которым должен работать виджет:
+    /// сначала пробуем явно выбранное `currentDeviceID`, иначе — системное по умолчанию.
+    private func activeDeviceID() -> AudioDeviceID {
+        currentDeviceID != 0 ? currentDeviceID : getDefaultOutputDevice()
     }
 
     private func getOutputDevices() -> [AudioDevice] {
@@ -145,13 +173,30 @@ final class VolumeModel: ObservableObject {
     private func getVolume() -> Float {
         var volume: Float32 = 0.5
         var size = UInt32(MemoryLayout<Float32>.size)
+        let deviceID = activeDeviceID()
+
+        // Сначала пробуем виртуальный мастер-волюм (как в системном меню громкости)
         var address = AudioObjectPropertyAddress(
-            mSelector: AudioObjectPropertySelector(kAudioDevicePropertyVolumeScalar),
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        let deviceID = getDefaultOutputDevice()
-        AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
+        var status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
+
+        // Если девайс его не поддерживает — откатываемся к старому scalar-волюму.
+        if status != noErr {
+            address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
+            if status != noErr {
+                self.error("Error getting volume for device \(deviceID): \(status)")
+                return 0.0
+            }
+        }
+
         return volume
     }
 
@@ -159,20 +204,19 @@ final class VolumeModel: ObservableObject {
     private func getMuted() -> Bool {
         var muted: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
+        let deviceID = activeDeviceID()
+
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
-        let deviceID = getDefaultOutputDevice()
-        
+
         let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &muted)
-        
         if status != noErr {
             return false
         }
-    
+
         return muted != 0
     }
 
@@ -181,31 +225,56 @@ final class VolumeModel: ObservableObject {
     func setVolume(_ value: Float) {
         
         var volume = value
+        let deviceID = activeDeviceID()
+
+        // Пытаемся писать в виртуальный мастер-волюм
         var address = AudioObjectPropertyAddress(
-            mSelector: AudioObjectPropertySelector(kAudioDevicePropertyVolumeScalar),
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        let deviceID = getDefaultOutputDevice()
-        AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+        var status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+
+        // Если не получилось — пишем в scalar
+        if status != noErr {
+            address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+            if status != noErr {
+                self.error("Error setting volume for device \(deviceID): \(status)")
+                return
+            }
+        }
+
         level = value
     }
 
     func setMuted(_ muted: Bool) {
         var muteValue: UInt32 = muted ? 1 : 0
+        let deviceID = activeDeviceID()
+
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
-        let deviceID = getDefaultOutputDevice()
         let status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout.size(ofValue: muteValue)), &muteValue)
-        
+
         if status != noErr {
-            self.error("Error setting mute: \(status)")
+            self.error("Error setting mute for device \(deviceID): \(status)")
+            return
+        }
+
+        self.debug("Mute set to: \(muted) for device \(deviceID)")
+        isMuted = muted
+        if muted {
+            prevLevel = level
+            level = 0
         } else {
-            self.debug("Mute set to: \(muted)")
+            level = getVolume()
         }
     }
 

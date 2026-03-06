@@ -223,6 +223,12 @@ final class VolumeMenuView {
     ) -> NSView {
         let height = config.widgetHeight - 10
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: height))
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 6
+        container.layer?.masksToBounds = true
+        if isSelected {
+            container.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
+        }
         
         let button = NSButton(frame: container.bounds)
         button.isBordered = false
@@ -244,16 +250,8 @@ final class VolumeMenuView {
         container.addSubview(icon)
         container.addSubview(label)
         
-        // Чекмарк если выбран
-        if isSelected {
-            let checkmark = NSImageView(frame: NSRect(x: 288, y: (height - 16) / 2, width: 20, height: 16))
-            checkmark.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
-            checkmark.contentTintColor = .labelColor
-            container.addSubview(checkmark)
-        }
-        
         // Кликабельность
-        let clickTarget = DeviceClickTarget(deviceID: device.id, model: model)
+        let clickTarget = DeviceClickTarget(deviceID: device.id, model: model, container: container)
         let clickGesture = NSClickGestureRecognizer(target: clickTarget, action: #selector(DeviceClickTarget.clicked))
         container.addGestureRecognizer(clickGesture)
         objc_setAssociatedObject(container, "clickTarget", clickTarget, .OBJC_ASSOCIATION_RETAIN)
@@ -323,15 +321,31 @@ private class VolumeSliderTarget: NSObject {
 private class DeviceClickTarget: NSObject {
     let deviceID: AudioDeviceID
     let model: VolumeModel
+    weak var container: NSView?
     
-    init(deviceID: AudioDeviceID, model: VolumeModel) {
+    init(deviceID: AudioDeviceID, model: VolumeModel, container: NSView) {
         self.deviceID = deviceID
         self.model = model
+        self.container = container
     }
     
     @MainActor
     @objc func clicked() {
         model.setOutputDevice(deviceID)
+        
+        guard let container,
+              let menuItem = container.enclosingMenuItem,
+              let menu = menuItem.menu else {
+            return
+        }
+        
+        // Снимаем подсветку со всех устройств в меню
+        for item in menu.items {
+            item.view?.layer?.backgroundColor = NSColor.clear.cgColor
+        }
+        
+        // Подсвечиваем выбранное устройство системным цветом
+        container.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
     }
 }
 
