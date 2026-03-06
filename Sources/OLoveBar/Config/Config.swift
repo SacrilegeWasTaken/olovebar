@@ -16,6 +16,12 @@ public final class Config: ObservableObject {
     @Published public var notchMinimumWidth: CGFloat = 700
     @Published public var hideWindowOnFullScreen: Bool = true
 
+    // MARK: - Notifications Configuration
+    @Published public var notificationsEnabled: Bool = false
+    /// Additional offset (in points) applied to the system banner position.
+    @Published public var notificationsOffsetX: CGFloat = 0
+    @Published public var notificationsOffsetY: CGFloat = 20
+
     // MARK: - Widget Configuration
     @Published public var appleLogoWidth: CGFloat = 45
     @Published public var aerospaceWidth: CGFloat = 33
@@ -56,6 +62,7 @@ public final class Config: ObservableObject {
             info("✅ Config loaded from \(path), \(String(describing: self.data))")
             load_window()
             load_widget()
+            load_notifications()
         } catch {
             warn("❌ Failed to parse TOML: \(error)")
         }
@@ -99,6 +106,19 @@ public final class Config: ObservableObject {
             ],
             bools: [
                 ("hide_on_fullscreen", { self.hideWindowOnFullScreen = $0 })
+            ]
+        )
+    }
+
+    private func load_notifications() {
+        load_section(
+            name: "notifications",
+            doubles: [
+                ("offset_x", { self.notificationsOffsetX = CGFloat($0) }),
+                ("offset_y", { self.notificationsOffsetY = CGFloat($0) })
+            ],
+            bools: [
+                ("enabled", { self.notificationsEnabled = $0 })
             ]
         )
     }
@@ -201,7 +221,10 @@ public final class Config: ObservableObject {
             leftSpacing: leftSpacing,
             widgetGlassVariant: widgetGlassVariant,
             showBatteryPercentage: showBatteryPercentage,
-            showWiFiName: showWiFiName
+            showWiFiName: showWiFiName,
+            notificationsEnabled: notificationsEnabled,
+            notificationsOffsetX: notificationsOffsetX,
+            notificationsOffsetY: notificationsOffsetY
         )
 
         DispatchQueue.global(qos: .utility).async {
@@ -239,6 +262,14 @@ public final class Config: ObservableObject {
                 "show_wifi_name": snapshot.showWiFiName
             ]
             root["widget"] = widget
+
+            // MARK: - Notifications section
+            let notifications: TOMLTable = [
+                "enabled": snapshot.notificationsEnabled,
+                "offset_x": Double(snapshot.notificationsOffsetX),
+                "offset_y": Double(snapshot.notificationsOffsetY)
+            ]
+            root["notifications"] = notifications
 
             // Serialize
             let tomlString = root.convert()

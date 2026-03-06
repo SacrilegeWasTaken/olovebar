@@ -12,6 +12,9 @@ build:
 run: build
 	./.build/debug/olovebar
 
+notification:
+	osascript -e 'display notification "Test body" with title "OLoveBar" subtitle "Placement test"'
+
 release:
 	swift build -c release
 

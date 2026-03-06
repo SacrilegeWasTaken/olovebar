@@ -20,12 +20,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var mainWindow: OLoveBarWindow!
     var notchWindow: NotchWindow!
+    var config: Config!
+    var notificationPlacementController: NotificationPlacementController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupSignalHandlers()
         requestAccessibilityIfNeeded()
         setupWindows()
         subscribeNotifications()
+
+        if let config = config {
+            notificationPlacementController = NotificationPlacementController(config: config)
+        }
     }
 
 
@@ -45,6 +51,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func setupWindows() {
         let config = Config()
+        self.config = config
         
         let barHeight: CGFloat = config.barHeight
         let barHorizontalCut: CGFloat = config.barHorizontalCut

@@ -102,6 +102,19 @@ fileprivate struct ConfigEditorView: View {
                                 SettingsSection(title: "Behavior") {
                                     GlassToggle(title: "Hide on Fullscreen", value: $config.hideWindowOnFullScreen)
                                 }
+
+                                SettingsSection(title: "Notifications") {
+                                    GlassToggle(title: "Control System Notifications", value: $config.notificationsEnabled)
+
+                                    GlassStepper(title: "Offset X",
+                                                 value: $config.notificationsOffsetX,
+                                                 range: -5000...5000,
+                                                 step: 1)
+                                    GlassStepper(title: "Offset Y",
+                                                 value: $config.notificationsOffsetY,
+                                                 range: -5000...5000,
+                                                 step: 1)
+                                }
                             } else {
                                 SettingsSection(title: "Appearance") {
                                     GlassStepper(title: "Glass Variant", value: $config.widgetGlassVariant, range: 0...19)
