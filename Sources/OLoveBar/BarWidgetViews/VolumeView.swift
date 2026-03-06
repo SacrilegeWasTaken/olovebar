@@ -134,13 +134,15 @@ final class VolumeMenuView {
         
         menu.addItem(.separator())
         
-        // Заголовок "Output"
         let outputTitleItem = NSMenuItem()
         outputTitleItem.view = createTitleView(text: "Output")
         menu.addItem(outputTitleItem)
+
+        let spacerItem = NSMenuItem()
+        spacerItem.view = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 4))
+        menu.addItem(spacerItem)
         
-        // Устройства вывода
-        for device in model.outputDevices {
+        for (index, device) in model.outputDevices.enumerated() {
             let deviceItem = NSMenuItem()
             deviceItem.view = createDeviceView(
                 device: device,
@@ -149,6 +151,13 @@ final class VolumeMenuView {
                 config: config
             )
             menu.addItem(deviceItem)
+            
+            // Пара пикселей между элементами (кроме последнего)
+            if index < model.outputDevices.count - 1 {
+                let spacerItem = NSMenuItem()
+                spacerItem.view = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 4))
+                menu.addItem(spacerItem)
+            }
         }
         
         menu.addItem(.separator())
@@ -223,40 +232,41 @@ final class VolumeMenuView {
     ) -> NSView {
         let height = config.widgetHeight - 10
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: height))
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 6
-        container.layer?.masksToBounds = true
+        
+        let bgFrame = container.bounds.insetBy(dx: 6, dy: 1)
+        let backgroundView = NSView(frame: bgFrame)
+        backgroundView.wantsLayer = true
+        backgroundView.layer?.cornerRadius = 6
+        backgroundView.layer?.masksToBounds = true
         if isSelected {
-            container.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
+            backgroundView.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
         }
+        container.addSubview(backgroundView)
         
         let button = NSButton(frame: container.bounds)
         button.isBordered = false
         button.bezelStyle = .rounded
         button.title = ""
         
-        // Иконка устройства
         let iconName = deviceIcon(for: device.name)
-        let icon = NSImageView(frame: NSRect(x: 12, y: (height - 16) / 2, width: 20, height: 16))
+        let icon = NSImageView(frame: NSRect(x: bgFrame.minX + 12, y: (height - 16) / 2, width: 20, height: 16))
         icon.image = NSImage(systemSymbolName: iconName, accessibilityDescription: nil)
         icon.contentTintColor = .labelColor
         
-        // Название устройства
         let label = NSTextField(labelWithString: device.name)
         label.font = .systemFont(ofSize: 13)
         label.textColor = .labelColor
-        label.frame = NSRect(x: 40, y: (height - 16) / 2, width: 240, height: 16)
+        label.frame = NSRect(x: bgFrame.minX + 40, y: (height - 16) / 2, width: 240, height: 16)
         
         container.addSubview(icon)
         container.addSubview(label)
         
-        // Кликабельность
-        let clickTarget = DeviceClickTarget(deviceID: device.id, model: model, container: container)
+        let clickTarget = DeviceClickTarget(deviceID: device.id, model: model, highlightView: backgroundView)
         let clickGesture = NSClickGestureRecognizer(target: clickTarget, action: #selector(DeviceClickTarget.clicked))
         container.addGestureRecognizer(clickGesture)
         objc_setAssociatedObject(container, "clickTarget", clickTarget, .OBJC_ASSOCIATION_RETAIN)
         
-        // Подсветка при наведении
+
         container.addTrackingArea(NSTrackingArea(
             rect: container.bounds,
             options: [.mouseEnteredAndExited, .activeInActiveApp],
@@ -321,31 +331,31 @@ private class VolumeSliderTarget: NSObject {
 private class DeviceClickTarget: NSObject {
     let deviceID: AudioDeviceID
     let model: VolumeModel
-    weak var container: NSView?
+    weak var highlightView: NSView?
     
-    init(deviceID: AudioDeviceID, model: VolumeModel, container: NSView) {
+    init(deviceID: AudioDeviceID, model: VolumeModel, highlightView: NSView) {
         self.deviceID = deviceID
         self.model = model
-        self.container = container
+        self.highlightView = highlightView
     }
     
     @MainActor
     @objc func clicked() {
         model.setOutputDevice(deviceID)
         
-        guard let container,
-              let menuItem = container.enclosingMenuItem,
+        guard let highlightView,
+              let menuItem = highlightView.enclosingMenuItem,
               let menu = menuItem.menu else {
             return
         }
         
         // Снимаем подсветку со всех устройств в меню
         for item in menu.items {
-            item.view?.layer?.backgroundColor = NSColor.clear.cgColor
+            item.view?.subviews.first?.layer?.backgroundColor = NSColor.clear.cgColor
         }
         
         // Подсвечиваем выбранное устройство системным цветом
-        container.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
+        highlightView.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
     }
 }
 
