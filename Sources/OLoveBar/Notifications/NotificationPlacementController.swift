@@ -10,6 +10,7 @@ final class NotificationPlacementController {
     private let config: Config
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
+    private var axObserver: AXObserver?
     /// Baseline banner origin used in "offset" mode to avoid cumulative drift.
     private var offsetBaselineOrigin: CGPoint?
 
@@ -31,17 +32,19 @@ final class NotificationPlacementController {
     private func updateRunningState() {
         guard config.notificationsEnabled, AXIsProcessTrusted() else {
             stopTimer()
+            tearDownObserver()
             offsetBaselineOrigin = nil
             return
         }
 
         startTimerIfNeeded()
+        setupObserverIfNeeded()
     }
 
     private func startTimerIfNeeded() {
         guard timer == nil else { return }
 
-        let newTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.tick()
             }
@@ -55,21 +58,40 @@ final class NotificationPlacementController {
         timer = nil
     }
 
+    private func setupObserverIfNeeded() {
+        guard axObserver == nil else { return }
+
+        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
+        guard let app = apps.first else { return }
+
+        var observer: AXObserver?
+        let result = AXObserverCreate(app.processIdentifier, notificationObserverCallback, &observer)
+        guard result == .success, let observer else { return }
+
+        axObserver = observer
+
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, selfPtr)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+
+        // На всякий случай сразу попробуем подвигать уже существующие уведомления.
+        moveAllNotifications()
+    }
+
+    private func tearDownObserver() {
+        guard let observer = axObserver else { return }
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        axObserver = nil
+    }
+
     private func tick() {
         guard AXIsProcessTrusted() else {
             stopTimer()
             return
         }
 
-        guard let appElement = notificationCenterAppElement() else {
-            offsetBaselineOrigin = nil
-            return
-        }
-        guard let windows = copyWindows(from: appElement) else { return }
-
-        for window in windows {
-            repositionIfNeeded(window: window)
-        }
+        moveAllNotifications()
     }
 
     private func notificationCenterAppElement() -> AXUIElement? {
@@ -84,6 +106,18 @@ final class NotificationPlacementController {
         let result = AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &value)
         guard result == .success, let array = value as? [AXUIElement] else { return nil }
         return array
+    }
+
+    private func moveAllNotifications() {
+        guard let appElement = notificationCenterAppElement(),
+              let windows = copyWindows(from: appElement) else {
+            offsetBaselineOrigin = nil
+            return
+        }
+
+        for window in windows {
+            repositionIfNeeded(window: window)
+        }
     }
 
     private func repositionIfNeeded(window: AXUIElement) {
@@ -111,6 +145,11 @@ final class NotificationPlacementController {
 
         frame.origin = targetOrigin
         setPosition(of: window, to: targetOrigin)
+    }
+
+    // Вызывается немедленно при создании нового окна уведомлений через AXObserver.
+    func handleWindowCreated(element: AXUIElement) {
+        repositionIfNeeded(window: element)
     }
 
     private func isNotificationBanner(window: AXUIElement) -> Bool {
@@ -175,6 +214,19 @@ final class NotificationPlacementController {
         }
 
         return nil
+    }
+}
+
+private func notificationObserverCallback(observer: AXObserver, element: AXUIElement, notification: CFString, context: UnsafeMutableRawPointer?) {
+    guard notification as String == kAXWindowCreatedNotification as String,
+          let context = context else {
+        return
+    }
+
+    let controller = Unmanaged<NotificationPlacementController>.fromOpaque(context).takeUnretainedValue()
+
+    Task { @MainActor in
+        controller.handleWindowCreated(element: element)
     }
 }
 
