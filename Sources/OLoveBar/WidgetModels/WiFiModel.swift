@@ -5,24 +5,24 @@ import Network
 
 // @MainActor
 // class MyViewModel: ObservableObject {
-//     @Published var text = "Загрузка..."
+//     @Published var text = "Loading..."
     
 //     func loadData() {
-//         Task { // создаём асинхронную задачу
-//             // Переходим на фоновый поток
+//         Task { // create an async task
+//             // Switch to a background thread
 //             let result = await Task.detached(priority: .background) {
-//                 // Это выполняется не на UI-потоке
+//                 // This runs off the main/UI thread
 //                 heavyCalculation()
 //             }.value
 
-//             // Возвращаемся на главный поток (автоматически, т.к. ViewModel — @MainActor)
-//             text = "Результат: \(result)"
+//             // Automatically hop back to the main actor (ViewModel is @MainActor)
+//             text = "Result: \(result)"
 //         }
 //     }
 // }
 
 // func heavyCalculation() -> Int {
-//     // например, долгая CPU-операция
+//     // Example of a long CPU-bound operation
 //     (0..<100_000_000).reduce(0, +)
 // }
 

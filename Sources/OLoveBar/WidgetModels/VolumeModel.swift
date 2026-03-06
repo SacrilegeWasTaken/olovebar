@@ -78,8 +78,8 @@ final class VolumeModel: ObservableObject {
     }
 
     fileprivate func update() {
-        // Если системное устройство вывода сменилось (например, подключили AirPods),
-        // перекидываем слушатели громкости/мута на новый девайс.
+        // If the system default output device changed (e.g. AirPods plugged in),
+        // move volume/mute listeners to the new device.
         let newDefaultDevice = getDefaultOutputDevice()
         if newDefaultDevice != storedDeviceID, storedDeviceID != 0 {
             removeListener(deviceID: storedDeviceID, selector: kAudioDevicePropertyVolumeScalar)
@@ -123,8 +123,8 @@ final class VolumeModel: ObservableObject {
         return deviceID
     }
 
-    /// Активное устройство, с которым должен работать виджет:
-    /// сначала пробуем явно выбранное `currentDeviceID`, иначе — системное по умолчанию.
+    /// Active output device that the widget should control:
+    /// prefer explicitly selected `currentDeviceID`, otherwise fall back to system default.
     private func activeDeviceID() -> AudioDeviceID {
         currentDeviceID != 0 ? currentDeviceID : getDefaultOutputDevice()
     }
@@ -175,7 +175,7 @@ final class VolumeModel: ObservableObject {
         var size = UInt32(MemoryLayout<Float32>.size)
         let deviceID = activeDeviceID()
 
-        // Сначала пробуем виртуальный мастер-волюм (как в системном меню громкости)
+        // Prefer virtual master volume (same control as system volume UI).
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -183,7 +183,7 @@ final class VolumeModel: ObservableObject {
         )
         var status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
 
-        // Если девайс его не поддерживает — откатываемся к старому scalar-волюму.
+        // If device does not support virtual master, fall back to per-device scalar volume.
         if status != noErr {
             address = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyVolumeScalar,
@@ -227,7 +227,7 @@ final class VolumeModel: ObservableObject {
         var volume = value
         let deviceID = activeDeviceID()
 
-        // Пытаемся писать в виртуальный мастер-волюм
+        // Try to set virtual master volume first.
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
@@ -235,7 +235,7 @@ final class VolumeModel: ObservableObject {
         )
         var status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
 
-        // Если не получилось — пишем в scalar
+        // If that fails, fall back to scalar volume.
         if status != noErr {
             address = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyVolumeScalar,

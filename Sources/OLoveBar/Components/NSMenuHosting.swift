@@ -2,18 +2,15 @@
 import SwiftUI
 import AppKit
 
-/// Контейнер для размещения SwiftUI View в NSMenu
 @MainActor
 final class NSMenuHosting {
     
-    /// Создает NSMenuItem с SwiftUI View
     static func menuItem<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> NSMenuItem {
         let hostingView = NSHostingView(rootView: content())
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         
-        // Принудительно устанавливаем размер
         let size = hostingView.fittingSize
         hostingView.frame = NSRect(origin: .zero, size: size)
         
@@ -24,8 +21,6 @@ final class NSMenuHosting {
     }
 
     
-    /// Создает NSMenu из структуры MenuItemData.
-    /// Если `isHelpMenu == true`, добавляет поиск по всему дереву меню активного приложения.
     static func menu(
         items: [MenuItemData],
         rootItems: [MenuItemData],
@@ -184,14 +179,14 @@ private final class HelpSearchHandler: NSObject, NSSearchFieldDelegate {
     func updateResults(for query: String) {
         guard let menu else { return }
 
-        // Удаляем все пункты, кроме первого (строка поиска).
+
         while menu.items.count > 1 {
             menu.removeItem(at: 1)
         }
 
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            // Пустой запрос — показываем дефолтные Help-пункты.
+
             for item in defaultItems {
                 menu.addItem(item)
             }
@@ -229,7 +224,7 @@ private final class HelpSearchHandler: NSObject, NSSearchFieldDelegate {
     }
 }
 
-/// Обрезает длинный путь до заданной длины, добавляя «…» в конце.
+
 private func clippedTitle(for path: String, limit: Int = 40) -> String {
     guard path.count > limit else { return path }
     let endIndex = path.index(path.startIndex, offsetBy: max(limit - 1, 0))

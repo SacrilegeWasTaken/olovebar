@@ -148,7 +148,6 @@ fileprivate struct MenuButtonView: View {
     private func showSubmenu() {
         guard let submenu = item.submenu, !submenu.isEmpty else { return }
 
-        // Подсвечиваем текущий пункт как активный на время работы меню.
         menuState.resetPath()
         menuState.addToPath(item.id)
 
@@ -171,7 +170,6 @@ fileprivate struct MenuButtonView: View {
             menu.popUp(positioning: nil, at: CGPoint(x: x, y: y), in: contentView)
         }
 
-        // После закрытия меню снимаем подсветку с верхнего пункта.
         menuState.setMenuCloseTaskSchedule()
     }
 }

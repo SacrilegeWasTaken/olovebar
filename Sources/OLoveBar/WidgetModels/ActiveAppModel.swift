@@ -98,7 +98,7 @@ class ActiveAppModel: ObservableObject {
             menuItems = []
             lastLoadedBundleID = ""
 
-            // Быстрый первый снимок меню для мгновенного отображения.
+            // Fast initial snapshot so that top menu appears immediately.
             let initialItems = extractMenuItems()
             if !initialItems.isEmpty {
                 menuItems = initialItems
@@ -111,10 +111,10 @@ class ActiveAppModel: ObservableObject {
     }
 
     func ensureMenuItemsLoaded(force: Bool = false) {
-        // Не перезапускаем загрузчик без необходимости.
+        // Avoid restarting the loader when the current cache is still valid.
         guard force || menuItems.isEmpty || bundleID != lastLoadedBundleID else { return }
 
-        // Если загрузчик уже работает и меню не пустое, не стартуем новый.
+        // If a loader is already running and we have menu items, do not start another one.
         if menuLoadTask != nil, !menuItems.isEmpty, bundleID == lastLoadedBundleID, !force {
             return
         }
@@ -125,10 +125,10 @@ class ActiveAppModel: ObservableObject {
 
             let currentBundle = self.bundleID
 
-            // Пытаемся найти запущенное приложение с этим bundle ID.
+            // Try to find a running application that matches current bundle ID.
             let app = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == currentBundle }
 
-            // Фаза ожидания завершения запуска (если нужно).
+            // Optionally wait for the app to finish launching before hammering AX.
             if let app {
                 for _ in 0..<self.maxLaunchStatusChecks {
                     guard !Task.isCancelled else { return }
@@ -149,7 +149,7 @@ class ActiveAppModel: ObservableObject {
                     let nonSeparatorCount = items.filter { !$0.isSeparator }.count
                     let hasSubmenu = items.contains { ($0.submenu?.isEmpty == false) }
 
-                    // Если меню ещё пустое (быстрый снимок не сработал), заполняем его сразу.
+                    // If the fast initial snapshot did not populate menuItems, do it now.
                     if self.menuItems.isEmpty {
                         self.menuItems = items
                         self.lastLoadedBundleID = self.bundleID
@@ -186,10 +186,10 @@ class ActiveAppModel: ObservableObject {
     }
     
     func performAction(for item: MenuItemData) {
-        // Сначала пытаемся выполнить действие с текущим элементом
+        // First try to perform an action on the cached AX element.
         var workingElement: AXUIElement? = item.element
         
-        // Если элемента нет, пытаемся переполучить его синхронно
+        // If there is no cached element, try to refetch it synchronously.
         if workingElement == nil {
             debug("⚠️ Element nil for '\(item.title)', attempting to reload...")
             if let freshElement = refreshMenuItemElement(for: item) {
@@ -197,7 +197,7 @@ class ActiveAppModel: ObservableObject {
                 debug("✅ Successfully reloaded element for '\(item.title)'")
             } else {
                 debug("❌ Could not reload element for '\(item.title)'")
-                ensureMenuItemsLoaded(force: true) // Обновляем кэш асинхронно для будущих кликов
+                ensureMenuItemsLoaded(force: true) // Refresh cache asynchronously for future clicks.
                 return
             }
         }
@@ -206,7 +206,7 @@ class ActiveAppModel: ObservableObject {
             return
         }
         
-        // Проверяем isEnabled динамически, но не блокируем выполнение если не удалось проверить
+        // Check kAXEnabledAttribute dynamically, but do not treat errors as fatal.
         var enabledValue: AnyObject?
         let enabledCheckResult = AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue)
         
@@ -215,22 +215,22 @@ class ActiveAppModel: ObservableObject {
             return
         }
         
-        // Пытаемся выполнить действие
+        // Try to perform kAXPressAction.
         let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
         
         if result == .success {
             debug("✅ Performed action for: \(item.title)")
         } else {
-            // При любой ошибке пытаемся переполучить элемент и повторить попытку
+            // On any error, try to refetch the element and retry.
             let errorCode = result.rawValue
             debug("🔄 Action failed for '\(item.title)' (code: \(errorCode)), reloading element and retrying...")
             
             if let freshElement = refreshMenuItemElement(for: item) {
-                // Пробуем снова с новым элементом
+                // Retry with refreshed element.
                 let retryResult = AXUIElementPerformAction(freshElement, kAXPressAction as CFString)
                 if retryResult == .success {
                     debug("✅ Successfully performed action for '\(item.title)' after reload")
-                    // Обновляем кэш для будущих кликов
+                    // Refresh cache for future clicks.
                     ensureMenuItemsLoaded(force: true)
                 } else {
                     debug("❌ Still failed after reload for '\(item.title)': AXError = \(retryResult.rawValue)")
@@ -238,12 +238,12 @@ class ActiveAppModel: ObservableObject {
                 }
             } else {
                 debug("❌ Could not reload element for '\(item.title)', refreshing full menu cache...")
-                // Если не удалось найти элемент, обновляем всё меню синхронно
+                // As a last resort, synchronously reload the whole menu tree.
                 let freshItems = extractMenuItems()
                 if !freshItems.isEmpty {
                     menuItems = freshItems
                     lastLoadedBundleID = bundleID
-                    // Пытаемся найти элемент в обновленном кэше
+                    // Try to find matching item within freshly extracted tree.
                     if let updatedItem = findItemInMenu(items: freshItems, matching: item) {
                         if let updatedElement = updatedItem.element {
                             let finalResult = AXUIElementPerformAction(updatedElement, kAXPressAction as CFString)
@@ -259,7 +259,7 @@ class ActiveAppModel: ObservableObject {
         }
     }
     
-    /// Синхронно переполучает элемент из текущего меню приложения по title
+    /// Synchronously re-fetches an AX element for a menu item by its title.
     private func refreshMenuItemElement(for item: MenuItemData) -> AXUIElement? {
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
@@ -272,7 +272,7 @@ class ActiveAppModel: ObservableObject {
         guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,
               let items = children as? [AXUIElement] else { return nil }
         
-        // Ищем элемент в основном меню и подменю по title
+        // Search through main menu and its submenus by title.
         for menuItem in items {
             if let found = findElementByTitle(in: menuItem, title: item.title) {
                 return found
@@ -282,7 +282,7 @@ class ActiveAppModel: ObservableObject {
         return nil
     }
     
-    /// Рекурсивно ищет элемент по title в меню и подменю
+    /// Recursively searches for a menu element with the given title.
     private func findElementByTitle(in element: AXUIElement, title: String) -> AXUIElement? {
         var titleValue: AnyObject?
         if AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
@@ -290,7 +290,7 @@ class ActiveAppModel: ObservableObject {
             return element
         }
         
-        // Проверяем подменю
+        // Traverse into submenu if present.
         var childrenValue: AnyObject?
         if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
            let children = childrenValue as? [AXUIElement], children.count > 0 {
@@ -310,14 +310,14 @@ class ActiveAppModel: ObservableObject {
         return nil
     }
     
-    /// Находит элемент в массиве MenuItemData по title (рекурсивно ищет в подменю)
+    /// Finds a MenuItemData in a tree by matching title (recursively walks submenus).
     private func findItemInMenu(items: [MenuItemData], matching target: MenuItemData) -> MenuItemData? {
         for item in items {
-            // Проверяем точное совпадение title
+            // Prefer exact title match.
             if item.title == target.title {
                 return item
             }
-            // Ищем в подменю
+            // Recurse into submenu.
             if let submenu = item.submenu {
                 if let found = findItemInMenu(items: submenu, matching: target) {
                     return found

@@ -75,7 +75,7 @@ final class NotificationPlacementController {
         AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, selfPtr)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
 
-        // На всякий случай сразу попробуем подвигать уже существующие уведомления.
+        // As a safety net, reposition already visible notification banners right away.
         moveAllNotifications()
     }
 
@@ -147,7 +147,7 @@ final class NotificationPlacementController {
         setPosition(of: window, to: targetOrigin)
     }
 
-    // Вызывается немедленно при создании нового окна уведомлений через AXObserver.
+    // Called immediately when a new notification window is created via AXObserver.
     func handleWindowCreated(element: AXUIElement) {
         repositionIfNeeded(window: element)
     }
