@@ -15,6 +15,8 @@
       in
       {
         packages.olovebar = pkgs.stdenv.mkDerivation {
+          __noChroot = true;
+
           pname = "olovebar";
           version = "1.3.0";
 
@@ -23,7 +25,7 @@
           nativeBuildInputs = swiftToolchain ++ [ pkgs.python3 ];
 
           buildPhase = ''
-            swift build -c release
+            xcrun --toolchain default swift build -c release
             python3 Script/Bundle.py .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar
           '';
 
