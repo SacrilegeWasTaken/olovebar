@@ -35,6 +35,7 @@ struct AppleLogoWidgetView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Settings") {
+                print("Settings menu tapped")
                 controller?.show()
             }
             Button("Quit OLoveBar") {
@@ -63,7 +64,7 @@ fileprivate struct ConfigEditorView: View {
                 VStack(spacing: 0) {
                     ZStack {
                         HStack {
-                            Text("OLoveBar")
+                            Text("OLoveBar \(AppVersion.current)")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.8))
 

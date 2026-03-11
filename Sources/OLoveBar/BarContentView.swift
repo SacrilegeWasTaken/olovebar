@@ -4,9 +4,14 @@ import MacroAPI
 
 @LogFunctions(.OLoveBar)
 struct BarContentView: View {
-    @StateObject var config: Config
+    @StateObject private var config: Config
     @State private var themeToggle: Bool = true
-    @State private var settingsController: ConfigWindowController?
+    private let settingsController: ConfigWindowController
+
+    init(config: Config) {
+        _config = StateObject(wrappedValue: config)
+        self.settingsController = ConfigWindowController(config: config)
+    }
 
 
     var body: some View {
@@ -37,11 +42,6 @@ struct BarContentView: View {
                     VolumeWidgetView(config: config)
                     DateTimeWidgetView(config: config)
                 }
-            }
-        }
-        .onAppear {
-            if settingsController == nil {
-                settingsController = ConfigWindowController(config: config)
             }
         }
     }

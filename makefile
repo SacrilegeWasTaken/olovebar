@@ -18,5 +18,8 @@ bundle:
 deploy: release bundle
 	@uv run Script/Deploy.py --app .build/OLoveBar.app --output .build/OLoveBar.dmg
 	
-tap:
+tap: deploy
+	TAP_DIR=~/Projects/Utilities/tap uv run Script/Tap.py 
+	
+only-tap:
 	TAP_DIR=~/Projects/Utilities/tap uv run Script/Tap.py 
