@@ -17,4 +17,6 @@ __pycache__/
 .uv/
 uv.lock
 .python-version
-.tmp
+.tmp/
+result/
+/result

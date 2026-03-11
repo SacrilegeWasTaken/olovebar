@@ -1,4 +1,4 @@
-.PHONY: default setup build run release install uninstall push
+.PHONY: default setup build deploy push
 
 default: run
 
@@ -6,33 +6,17 @@ setup:
 	swift package resolve
 	swift package update
 
-build:
-	swift build
-
-run: build
-	./.build/debug/olovebar
-
 notification:
 	osascript -e 'display notification "Test body" with title "OLoveBar" subtitle "Placement test"'
 
 release:
 	swift build -c release
 
-bundle: release
+bundle:
 	@uv run Script/Bundle.py .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar
 
-
-install: bundle
-	@echo "Installing .app to /Applications (may require sudo)"
-	@if [ -d "/Applications/OLoveBar.app" ]; then \
-		echo "Removing existing /Applications/OLoveBar.app"; \
-		rm -rf "/Applications/OLoveBar.app"; \
-	fi
-	@echo "Copying .build/OLoveBar.app -> /Applications/OLoveBar.app"
-	@ditto ".build/OLoveBar.app" "/Applications/OLoveBar.app"
-	@echo "Installed. You may need to restart the app or Dock if an older process is running."
-
-
-deploy: bundle
+deploy: release bundle
 	@uv run Script/Deploy.py --app .build/OLoveBar.app --output .build/OLoveBar.dmg
 	
+tap:
+	TAP_DIR=~/Projects/Utilities/tap uv run Script/Tap.py 
