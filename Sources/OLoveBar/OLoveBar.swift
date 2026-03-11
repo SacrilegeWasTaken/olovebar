@@ -18,9 +18,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         app.run()
     }
 
-    var mainWindow: OLoveBarWindow!
-    var notchWindow: NotchWindow!
-    var config: Config!
+    var mainWindow: OLoveBarWindow?
+    var notchWindow: NotchWindow?
+    var config: Config?
     var notificationPlacementController: NotificationPlacementController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -90,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             height: notchFrame.height + 100
         )
         
-        notchWindow.setupHoverTracking(collapsedFrame: notchFrame, expandedFrame: expandedNotchFrame)
+        notchWindow?.setupHoverTracking(collapsedFrame: notchFrame, expandedFrame: expandedNotchFrame)
     }
 
     private func subscribeNotifications() {
@@ -103,6 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     @objc private func updateState(_ notification: Notification) {
+        guard let mainWindow, let notchWindow else { return }
         guard let userInfo = notification.userInfo,
               let runningApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
 
@@ -120,9 +121,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var frontWindow: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &frontWindow)
         guard result == .success, let window = frontWindow else { return false }
+        // AXUIElement is a CF type; bridge and use after success.
+        let axWindow = (window as AnyObject) as! AXUIElement
 
         var fullscreenValue: AnyObject?
-        let fullscreenResult = AXUIElementCopyAttributeValue(window as! AXUIElement, "AXFullScreen" as CFString, &fullscreenValue)
+        let fullscreenResult = AXUIElementCopyAttributeValue(axWindow, "AXFullScreen" as CFString, &fullscreenValue)
         if fullscreenResult == .success, let fullscreen = fullscreenValue as? Bool {
             return fullscreen
         }

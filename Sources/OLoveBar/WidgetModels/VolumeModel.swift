@@ -10,8 +10,7 @@ struct AudioDevice: Identifiable, Equatable {
 }
 
 private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UInt32, _ addresses: UnsafePointer<AudioObjectPropertyAddress>, _ clientData: UnsafeMutableRawPointer?) -> OSStatus {
-    guard let clientData else { return 0 }
-    let model = Unmanaged<VolumeModel>.fromOpaque(clientData).takeUnretainedValue()
+    guard let model = VolumeModel.currentInstance else { return 0 }
     Task { @MainActor in
         model.update()
     }
@@ -21,8 +20,10 @@ private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UI
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
 final class VolumeModel: ObservableObject {
-    var prevLevel: Float!
-    @Published var level: Float!
+    fileprivate static nonisolated(unsafe) weak var currentInstance: VolumeModel?
+
+    var prevLevel: Float = 0.5
+    @Published var level: Float = 0.5
     @Published var isPopoverPresented: Bool = false
     @Published var isMuted: Bool = false
     @Published var outputDevices: [AudioDevice] = []
@@ -30,6 +31,7 @@ final class VolumeModel: ObservableObject {
     nonisolated(unsafe) private var storedDeviceID: AudioDeviceID = 0
 
     public init() {
+        Self.currentInstance = self
         level = getVolume()
         currentDeviceID = getDefaultOutputDevice()
         storedDeviceID = currentDeviceID
@@ -38,6 +40,7 @@ final class VolumeModel: ObservableObject {
     }
 
     nonisolated deinit {
+        Self.currentInstance = nil
         let deviceID = storedDeviceID
         var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar, mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
         AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())

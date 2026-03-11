@@ -33,7 +33,49 @@ final class NotesModel: ObservableObject {
         self.dateFormatter = DateFormatter()
         self.dateFormatter.dateFormat = "yyyy-MM-dd"
         
-        load()
+        loadAsync()
+    }
+    
+    private func loadAsync() {
+        let path = self.path
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            var loadedNotes: [String: [Note]] = [:]
+            if FileManager.default.fileExists(atPath: path) {
+                do {
+                    let content = try String(contentsOfFile: path, encoding: .utf8)
+                    let table = try TOMLTable(string: content)
+                    if let notesTable = table["notes"]?.table {
+                        for (dateKey, value) in notesTable {
+                            guard let notesArray = value.array else { continue }
+                            var dateNotes: [Note] = []
+                            for noteValue in notesArray {
+                                guard let noteTable = noteValue.table,
+                                      let idString = noteTable["id"]?.string,
+                                      let id = UUID(uuidString: idString),
+                                      let completed = noteTable["completed"]?.bool else { continue }
+                                let title = noteTable["title"]?.string ?? noteTable["text"]?.string ?? ""
+                                let body = noteTable["body"]?.string ?? ""
+                                dateNotes.append(Note(id: id, title: title, body: body, completed: completed))
+                            }
+                            if !dateNotes.isEmpty {
+                                loadedNotes[dateKey] = dateNotes
+                            }
+                        }
+                    }
+                } catch {
+                    // Will keep empty notes; warn on main
+                    DispatchQueue.main.async { [weak self] in
+                        self?.warn("Failed to load notes: \(error)")
+                    }
+                    return
+                }
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.notes = loadedNotes
+                self?.info("Loaded \(loadedNotes.count) date entries from \(path)")
+            }
+        }
     }
     
     var dateString: String {
@@ -120,52 +162,6 @@ final class NotesModel: ObservableObject {
         save()
     }
     
-    func load() {
-        guard FileManager.default.fileExists(atPath: path) else {
-            debug("Notes file not found at \(path)")
-            return
-        }
-        
-        do {
-            let content = try String(contentsOfFile: path, encoding: .utf8)
-            let table = try TOMLTable(string: content)
-            
-            guard let notesTable = table["notes"]?.table else {
-                debug("No notes section in TOML")
-                return
-            }
-            
-            var loadedNotes: [String: [Note]] = [:]
-            
-            for (dateKey, value) in notesTable {
-                guard let notesArray = value.array else { continue }
-                
-                var dateNotes: [Note] = []
-                for noteValue in notesArray {
-                    guard let noteTable = noteValue.table,
-                          let idString = noteTable["id"]?.string,
-                          let id = UUID(uuidString: idString),
-                          let completed = noteTable["completed"]?.bool else { continue }
-                    
-                    let title = noteTable["title"]?.string ?? noteTable["text"]?.string ?? ""
-                    let body = noteTable["body"]?.string ?? ""
-                    
-                    dateNotes.append(Note(id: id, title: title, body: body, completed: completed))
-                }
-                
-                if !dateNotes.isEmpty {
-                    loadedNotes[dateKey] = dateNotes
-                }
-            }
-            
-            notes = loadedNotes
-            info("Loaded \(notes.count) date entries from \(path)")
-            
-        } catch {
-            warn("Failed to load notes: \(error)")
-        }
-    }
-    
     func save() {
         let snapshot = (
             path: path,
@@ -178,7 +174,8 @@ final class NotesModel: ObservableObject {
             let notesTable = TOMLTable()
             
             let calendar = Calendar.current
-            let cutoffDate = calendar.date(byAdding: .day, value: -30, to: Date())!
+            let cutoffDate = calendar.date(byAdding: .day, value: -30, to: Date())
+                ?? Date().addingTimeInterval(-30 * 24 * 3600)
             
             for (dateKey, dateNotes) in snapshot.notes {
                 // Skip notes older than 30 days

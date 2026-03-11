@@ -32,6 +32,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
 
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
     nonisolated(unsafe) private var serverSocket: Int32 = -1
+    private let cacheQueue = DispatchQueue(label: "AerospaceModel.iconCache")
     
     init() {
         startHTTPServer()
@@ -99,7 +100,9 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                 close(client)
                 
                 self.info("Triggering updateData()")
-                self.updateData()
+                DispatchQueue.main.async { [weak self] in
+                    self?.updateData()
+                }
             }
         }
     }
@@ -149,60 +152,68 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     nonisolated(unsafe) private static var cachedAerospacePath: String?
+    private static let pathCacheQueue = DispatchQueue(label: "AerospaceModel.pathCache")
 
     private static func resolveAerospacePath() -> String? {
-        if let cached = cachedAerospacePath, FileManager.default.fileExists(atPath: cached) {
-            return cached
-        }
-
-        // Check common locations first
-        let candidates = [
-            "/opt/homebrew/bin/aerospace",
-            "/usr/local/bin/aerospace",
-            "/usr/bin/aerospace",
-            "/bin/aerospace"
-        ]
-        for c in candidates {
-            if FileManager.default.isExecutableFile(atPath: c) {
-                cachedAerospacePath = c
-                return c
+        pathCacheQueue.sync {
+            if let cached = cachedAerospacePath, FileManager.default.fileExists(atPath: cached) {
+                return cached
             }
-        }
 
-        // Fallback: check PATH environment
-        if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
-            for dir in pathEnv.split(separator: ":") {
-                let p = String(dir) + "/aerospace"
-                if FileManager.default.isExecutableFile(atPath: p) {
-                    cachedAerospacePath = p
-                    return p
+            // Check common locations first
+            let candidates = [
+                "/opt/homebrew/bin/aerospace",
+                "/usr/local/bin/aerospace",
+                "/usr/bin/aerospace",
+                "/bin/aerospace"
+            ]
+            for c in candidates {
+                if FileManager.default.isExecutableFile(atPath: c) {
+                    cachedAerospacePath = c
+                    return c
                 }
             }
-        }
 
-        return nil
+            // Fallback: check PATH environment
+            if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
+                for dir in pathEnv.split(separator: ":") {
+                    let p = String(dir) + "/aerospace"
+                    if FileManager.default.isExecutableFile(atPath: p) {
+                        cachedAerospacePath = p
+                        return p
+                    }
+                }
+            }
+
+            return nil
+        }
     }
 
     private func updateData() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            let output = AerospaceModel.runCommand("aerospace list-windows --all --format '%{workspace}|%{app-bundle-id}'")
-            let focused = AerospaceModel.runCommand("aerospace list-workspaces --focused")
+            let combinedCommand = "aerospace list-windows --all --format '%{workspace}|%{app-bundle-id}'; echo '---FOCUSED---'; aerospace list-workspaces --focused; echo '---ALL---'; aerospace list-workspaces --all"
+            let output = AerospaceModel.runCommand(combinedCommand)
+            let parts = output.components(separatedBy: "---FOCUSED---")
+            let windowsOutput = parts.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let afterFocused = parts.dropFirst().joined(separator: "---FOCUSED---").trimmingCharacters(in: .whitespacesAndNewlines)
+            let focusedAndAll = afterFocused.components(separatedBy: "---ALL---")
+            let focused = focusedAndAll.first?.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).first ?? ""
+            let allWorkspacesOutput = focusedAndAll.dropFirst().joined(separator: "---ALL---").trimmingCharacters(in: .whitespacesAndNewlines)
             self.info("Focused workspace: \(focused)")
             
-            let lines = output.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            let lines = windowsOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
             var workspaceMap: [String: Set<String>] = [:]
             
             for line in lines {
-                let parts = line.components(separatedBy: "|")
-                guard parts.count == 2 else { continue }
-                let workspaceId = parts[0]
-                let bundleId = parts[1]
+                let lineParts = line.components(separatedBy: "|")
+                guard lineParts.count == 2 else { continue }
+                let workspaceId = lineParts[0]
+                let bundleId = lineParts[1]
                 workspaceMap[workspaceId, default: []].insert(bundleId)
             }
             
-            let allWorkspaces = AerospaceModel.runCommand("aerospace list-workspaces --all")
-            let workspaceIds = allWorkspaces.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            let workspaceIds = allWorkspacesOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
             
             var workspaceInfos: [WorkspaceInfo] = []
             for workspaceId in workspaceIds {
@@ -221,18 +232,18 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
     
     private func getAppIcon(bundleId: String) -> NSImage? {
-        // Check cache first
-        if let cachedIcon = iconCache[bundleId] {
-            return cachedIcon
+        cacheQueue.sync {
+            if let cachedIcon = iconCache[bundleId] {
+                return cachedIcon
+            }
+
+            guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
+                return nil
+            }
+            let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+            iconCache[bundleId] = icon
+            return icon
         }
-        
-        // Get icon and cache it
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-            return nil
-        }
-        let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-        iconCache[bundleId] = icon
-        return icon
     }
 
     func focus(_ id: String) {

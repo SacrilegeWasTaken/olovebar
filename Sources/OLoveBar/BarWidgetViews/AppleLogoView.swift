@@ -8,7 +8,7 @@ import MacroAPI
 @LogFunctions(.Widgets([.appleLogoModel]))
 struct AppleLogoWidgetView: View {
     @ObservedObject var config:         Config
-    @ObservedObject var controller:     ConfigWindowController
+    var controller:                     ConfigWindowController?
     @Binding        var themeToggle:    Bool
 
 
@@ -25,7 +25,7 @@ struct AppleLogoWidgetView: View {
                 .frame(width: config.appleLogoWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )
@@ -35,7 +35,7 @@ struct AppleLogoWidgetView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Settings") {
-                controller.show()
+                controller?.show()
             }
             Button("Quit OLoveBar") {
                 DispatchQueue.main.async {
@@ -55,7 +55,7 @@ fileprivate struct ConfigEditorView: View {
 
     var body: some View {
         LiquidGlassBackground(
-            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+            variant: GlassVariant.safe(from: config.widgetGlassVariant),
             cornerRadius: 16
         ) {
             ZStack {

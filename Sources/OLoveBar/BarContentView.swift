@@ -6,13 +6,14 @@ import MacroAPI
 struct BarContentView: View {
     @StateObject var config: Config
     @State private var themeToggle: Bool = true
+    @State private var settingsController: ConfigWindowController?
 
 
     var body: some View {
         ZStack {
             if self.themeToggle {
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: config.windowGlassVariant)!,
+                    variant: GlassVariant.safe(from: config.windowGlassVariant, default: .v12),
                     cornerRadius: config.widgetCornerRadius
                 ) {
                     Color.clear
@@ -21,7 +22,7 @@ struct BarContentView: View {
 
             HStack(spacing: 0) {
                 HStack(spacing: config.rightSpacing) {
-                    AppleLogoWidgetView(config: config, controller: ConfigWindowController(config: config), themeToggle: $themeToggle)
+                    AppleLogoWidgetView(config: config, controller: settingsController, themeToggle: $themeToggle)
                     AerospaceWidgetView(config: config)
                     ActiveAppWidgetView(config: config)
                 }
@@ -36,6 +37,11 @@ struct BarContentView: View {
                     VolumeWidgetView(config: config)
                     DateTimeWidgetView(config: config)
                 }
+            }
+        }
+        .onAppear {
+            if settingsController == nil {
+                settingsController = ConfigWindowController(config: config)
             }
         }
     }

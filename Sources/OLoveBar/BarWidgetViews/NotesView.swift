@@ -16,7 +16,7 @@ struct NotesWidgetView: View {
                 .frame(width: config.notesWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )
@@ -603,7 +603,8 @@ private class NoteInputTarget: NSObject, NSTextFieldDelegate {
     @MainActor
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            submit(control as! NSTextField)
+            guard let field = control as? NSTextField else { return false }
+            submit(field)
             return true
         }
         return false

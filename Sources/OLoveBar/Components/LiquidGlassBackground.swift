@@ -16,6 +16,11 @@ public enum GlassVariant: Int, CaseIterable, Identifiable, Sendable {
     case v15 = 15, v16 = 16, v17 = 17, v18 = 18, v19 = 19
 
     public var id: Int { rawValue }
+
+    /// Returns a valid variant for the given raw value, or the fallback if out of range (0...19).
+    public static func safe(from rawValue: Int, default fallback: GlassVariant = .v11) -> GlassVariant {
+        GlassVariant(rawValue: rawValue) ?? fallback
+    }
 }
 
 /// A SwiftUI view that embeds its content inside Apple’s private liquid‑glass material.

@@ -11,7 +11,7 @@ struct VolumeSliderView: View {
             Image(systemName: "speaker.slash.fill")
                 .foregroundColor(.white)
             Slider(value: Binding(
-                get: { Double(model.level ?? 0) },
+                get: { Double(model.level) },
                 set: { val in
                     if model.isMuted && val > 0 {
                         model.setMuted(false)
@@ -55,7 +55,7 @@ struct VolumeWidgetView: View {
                 .frame(width: config.volumeWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )
@@ -200,7 +200,7 @@ final class VolumeMenuView {
         let slider = NSSlider(frame: NSRect(x: 36, y: 8, width: 248, height: 16))
         slider.minValue = 0
         slider.maxValue = 1
-        slider.doubleValue = Double(model.level ?? 0)
+        slider.doubleValue = Double(model.level)
         slider.isContinuous = true
         
         // Give slider a slightly rounded track.
@@ -311,9 +311,7 @@ private class VolumeSliderTarget: NSObject {
         // Reactively update NSSlider when VolumeModel.level changes.
         self.cancellable = model.$level.sink { [weak slider] newValue in
             Task { @MainActor in
-                if let newValue = newValue {
-                    slider?.doubleValue = Double(newValue)
-                }
+                slider?.doubleValue = Double(newValue)
             }
         }
     }

@@ -10,24 +10,28 @@ import MacroAPI
 @MainActor
 @LogFunctions(.Widgets([.batteryModel]))
 final class BatteryModel: ObservableObject {
-    @Published var percentage: Int!
-    @Published var isCharging: Bool!
-    @Published var state: String!
-    @Published var timeToFullCharge: String!
-    @Published var isLowPowerMode: Bool!
+    fileprivate static nonisolated(unsafe) weak var currentInstance: BatteryModel?
+
+    @Published var percentage: Int = 0
+    @Published var isCharging: Bool = false
+    @Published var state: String = ""
+    @Published var timeToFullCharge: String = ""
+    @Published var isLowPowerMode: Bool = false
 
     nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource!
     nonisolated(unsafe) private var powerModeObserver: NSObjectProtocol!
 
     init() {
+        Self.currentInstance = self
         update()
         setupPowerNotifications()
         setupLowPowerModeObserver()
     }
 
     deinit {
+        Self.currentInstance = nil
         if let powerSourceLoop {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), powerSourceLoop, .defaultMode)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSourceLoop, .defaultMode)
         }
         if let powerModeObserver {
             NotificationCenter.default.removeObserver(powerModeObserver)
@@ -35,14 +39,12 @@ final class BatteryModel: ObservableObject {
     }
 
     private func setupPowerNotifications() {
-        let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        powerSourceLoop = IOPSNotificationCreateRunLoopSource({ context in
-            guard let context else { return }
-            let model = Unmanaged<BatteryModel>.fromOpaque(context).takeUnretainedValue()
+        powerSourceLoop = IOPSNotificationCreateRunLoopSource({ _ in
+            guard let model = BatteryModel.currentInstance else { return }
             Task { @MainActor in
                 model.update()
             }
-        }, context).takeRetainedValue()
+        }, nil).takeRetainedValue()
         
         if let powerSourceLoop {
             CFRunLoopAddSource(CFRunLoopGetCurrent(), powerSourceLoop, .defaultMode)

@@ -3,9 +3,10 @@ import AppKit
 struct Globals {
     private static func computeValues() -> (notchWidth: CGFloat, screenWidth: CGFloat, notchStart: CGFloat, notchEnd: CGFloat, notchHeight: CGFloat, screenHeight: CGFloat) {
         guard let screen = NSScreen.main else {
-            let width = NSScreen.main?.frame.width ?? 0
-            let height = NSScreen.main?.frame.height ?? 0
-            return (0, width, 0, width, 0, height)
+            // No main screen (e.g. headless); use fallback to avoid zero/negative layout.
+            let fallbackWidth: CGFloat = 1920
+            let fallbackHeight: CGFloat = 1080
+            return (0, fallbackWidth, 0, fallbackWidth, 0, fallbackHeight)
         }
 
         if let topLeft = screen.auxiliaryTopLeftArea, let topRight = screen.auxiliaryTopRightArea {

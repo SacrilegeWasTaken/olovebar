@@ -66,7 +66,7 @@ struct BatteryWidgetView: View {
                 }
                 
                 if config.showBatteryPercentage {
-                    Text("\(model.percentage!)%")
+                    Text("\(model.percentage)%")
                         .foregroundColor(.white)
                         .font(.system(size: 12))
                 }
@@ -74,7 +74,7 @@ struct BatteryWidgetView: View {
             .frame(width: config.batteryWidth, height: config.widgetHeight)
             .background(
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                    variant: GlassVariant.safe(from: config.widgetGlassVariant),
                     cornerRadius: config.widgetCornerRadius
                 ) {}
             )

@@ -26,7 +26,7 @@ struct DateTimeWidgetView: View {
                 .frame(width: config.dateTimeWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )

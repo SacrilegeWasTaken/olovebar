@@ -12,7 +12,7 @@ struct AerospaceWidgetView: View {
     
     var body: some View {
         LiquidGlassBackground(
-            variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+            variant: GlassVariant.safe(from: config.widgetGlassVariant),
             cornerRadius: config.widgetCornerRadius
         ) {
         HStack(spacing: 2) {

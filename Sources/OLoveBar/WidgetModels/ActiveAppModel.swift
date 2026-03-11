@@ -266,7 +266,8 @@ class ActiveAppModel: ObservableObject {
         
         var menuBar: AnyObject?
         guard AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) == .success,
-              let menuBarElement = menuBar as! AXUIElement? else { return nil }
+              let menuBarObj = menuBar else { return nil }
+        let menuBarElement = menuBarObj as! AXUIElement
         
         var children: AnyObject?
         guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,
@@ -333,10 +334,11 @@ class ActiveAppModel: ObservableObject {
         
         var menuBar: AnyObject?
         guard AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) == .success,
-              let menuBarElement = menuBar as! AXUIElement? else {
+              let menuBarObj = menuBar else {
             debug("No menuBar for \(app.localizedName ?? "")")
             return []
         }
+        let menuBarElement = menuBarObj as! AXUIElement
         
         var children: AnyObject?
         guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,

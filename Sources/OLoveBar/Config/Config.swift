@@ -4,6 +4,8 @@ import MacroAPI
 
 @LogFunctions(.Config)
 public final class Config: ObservableObject {
+    fileprivate static nonisolated(unsafe) weak var currentInstance: Config?
+
     private var path: String
     private var data: TOMLTable?
 
@@ -45,27 +47,43 @@ public final class Config: ObservableObject {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configPath = home.appendingPathComponent(".config/olovebar/olovebar.toml").path
         self.path = configPath
-        load()
+        Self.currentInstance = self
+        loadAsync()
     }
 
-    // MARK: - Load
-    private func load() {
-        guard FileManager.default.fileExists(atPath: path) else {
-            debug("⚠️ Config not found at \(path)")
-            return
+    // MARK: - Load (async to avoid blocking main)
+    private func loadAsync() {
+        let path = self.path
+        DispatchQueue.global(qos: .utility).async {
+            let table: TOMLTable?
+            if FileManager.default.fileExists(atPath: path) {
+                do {
+                    let content = try String(contentsOfFile: path, encoding: .utf8)
+                    table = try TOMLTable(string: content)
+                } catch {
+                    table = nil
+                }
+            } else {
+                table = nil
+            }
+            DispatchQueue.main.async {
+                Config.currentInstance?.applyLoaded(table: table)
+            }
         }
+    }
 
-        do {
-            let content = try String(contentsOfFile: path, encoding: .utf8)
-            let table = try TOMLTable(string: content)
+    private func applyLoaded(table: TOMLTable?) {
+        if let table {
             self.data = table
             info("✅ Config loaded from \(path), \(String(describing: self.data))")
-            load_window()
-            load_widget()
-            load_notifications()
-        } catch {
-            warn("❌ Failed to parse TOML: \(error)")
+        } else if FileManager.default.fileExists(atPath: path) {
+            warn("❌ Failed to parse config TOML at \(path)")
+        } else {
+            debug("⚠️ Config not found at \(path)")
         }
+        load_window()
+        load_widget()
+        load_notifications()
     }
 
 
@@ -102,7 +120,7 @@ public final class Config: ObservableObject {
                 ("notch_min_width", { self.notchMinimumWidth = CGFloat($0) })
             ],
             ints: [
-                ("glass_variant", { self.windowGlassVariant = $0 })
+                ("glass_variant", { self.windowGlassVariant = min(19, max(0, $0)) })
             ],
             bools: [
                 ("hide_on_fullscreen", { self.hideWindowOnFullScreen = $0 })
@@ -143,7 +161,7 @@ public final class Config: ObservableObject {
                 ("left_spacing", { self.leftSpacing = CGFloat($0) })
             ],
             ints: [
-                ("glass_variant", { self.widgetGlassVariant = $0 })
+                ("glass_variant", { self.widgetGlassVariant = min(19, max(0, $0)) })
             ],
             bools: [
                 ("show_battery_percentage", { self.showBatteryPercentage = $0 }),

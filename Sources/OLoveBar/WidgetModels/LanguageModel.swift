@@ -6,7 +6,7 @@ import Carbon
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
 final class LanguageModel: ObservableObject {
-    @Published var current: String!
+    @Published var current: String = "EN"
     nonisolated(unsafe) private var observer: Any?
 
     init() {
@@ -22,7 +22,7 @@ final class LanguageModel: ObservableObject {
                 self.update()
                 try await Task.sleep(nanoseconds: 100_000_000)
                 self.update()
-                self.info("Language: \(self.current!)")
+                self.info("Language: \(self.current)")
             }
         }
     }
@@ -39,7 +39,8 @@ final class LanguageModel: ObservableObject {
             current = "EN"
             return
         }
-        let langs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue() as! [String]
+        let rawLangs = Unmanaged<CFArray>.fromOpaque(languages).takeUnretainedValue()
+        let langs = (rawLangs as? [String]) ?? []
         let langCode = langs.first ?? "en"
         let newLang = langCode.uppercased()
         if current != newLang {
@@ -58,7 +59,7 @@ final class LanguageModel: ObservableObject {
                   let category = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory) else {
                 return false
             }
-            let cat = Unmanaged<CFString>.fromOpaque(category).takeUnretainedValue() as String
+            let cat = (Unmanaged<CFString>.fromOpaque(category).takeUnretainedValue() as String?) ?? ""
             return cat == kTISCategoryKeyboardInputSource as String
         }
         

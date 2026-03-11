@@ -10,8 +10,6 @@
     flake-utils.lib.eachSystem [ "aarch64-darwin" ] (system:
       let
         pkgs = import nixpkgs { inherit system; };
-
-        swiftToolchain = with pkgs; [ swift swiftpm ];
       in
       {
         packages.olovebar = pkgs.stdenv.mkDerivation {
@@ -22,10 +20,22 @@
 
           src = ./.;
 
-          nativeBuildInputs = swiftToolchain ++ [ pkgs.python3 ];
+          nativeBuildInputs = [ pkgs.python3 ];
 
           buildPhase = ''
-            xcrun --toolchain default swift build -c release
+            # Пробрасываем системные пути macOS, чтобы найти xcode-select и swift
+            export PATH=$PATH:/usr/bin:/usr/sbin:/usr/local/bin
+            
+            # Теперь эти команды сработают
+            export DEVELOPER_DIR=$(xcode-select -p)
+            export SDKROOT=$(xcrun --show-sdk-path)
+            
+            echo "Using SDK at: $SDKROOT"
+            
+            # Запускаем сборку
+            swift build -c release
+            
+            # Упаковка
             python3 Script/Bundle.py .build/release/olovebar .build/OLoveBar.app com.sacrilege.olovebar
           '';
 
@@ -38,7 +48,7 @@
         packages.default = self.packages.${system}.olovebar;
 
         devShells.default = pkgs.mkShell {
-          buildInputs = swiftToolchain ++ [
+          buildInputs = [
             pkgs.makeWrapper
             pkgs.pkg-config
             pkgs.python3

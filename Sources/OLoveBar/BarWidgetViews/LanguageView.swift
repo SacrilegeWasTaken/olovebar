@@ -19,7 +19,7 @@ struct LanguageWidgetView: View {
                 .frame(height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )

@@ -36,7 +36,7 @@ struct ActiveAppWidgetView: View {
             .frame(minWidth: config.activeAppWidth)
             .background(
                 LiquidGlassBackground(
-                    variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
+                    variant: GlassVariant.safe(from: config.widgetGlassVariant),
                     cornerRadius: config.widgetCornerRadius
                 ) {}
             )

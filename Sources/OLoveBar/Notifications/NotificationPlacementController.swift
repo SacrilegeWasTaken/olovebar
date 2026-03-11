@@ -7,17 +7,41 @@ import Combine
 /// specifically for OLoveBar and driven by its `Config`.
 @MainActor
 final class NotificationPlacementController {
+    fileprivate static nonisolated(unsafe) weak var currentInstance: NotificationPlacementController?
+
     private let config: Config
     private var cancellables = Set<AnyCancellable>()
-    private var timer: Timer?
-    private var axObserver: AXObserver?
+    nonisolated(unsafe) private var timer: Timer?
+    nonisolated(unsafe) private var axObserver: AXObserver?
     /// Baseline banner origin used in "offset" mode to avoid cumulative drift.
     private var offsetBaselineOrigin: CGPoint?
 
     init(config: Config) {
         self.config = config
+        Self.currentInstance = self
         observeConfig()
         updateRunningState()
+    }
+
+    deinit {
+        Self.currentInstance = nil
+        let t = timer
+        let obs = axObserver
+        timer = nil
+        axObserver = nil
+        if Thread.isMainThread {
+            t?.invalidate()
+            if let o = obs {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
+            }
+        } else {
+            DispatchQueue.main.sync {
+                t?.invalidate()
+                if let o = obs {
+                    CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
+                }
+            }
+        }
     }
 
     private func observeConfig() {
@@ -165,8 +189,7 @@ final class NotificationPlacementController {
               CFGetTypeID(cfValue) == AXValueGetTypeID() else {
             return nil
         }
-
-        let axValue = cfValue as! AXValue
+        let axValue = (cfValue as AnyObject) as! AXValue
 
         var rect = CGRect.zero
         guard AXValueGetType(axValue) == .cgRect,
@@ -218,12 +241,11 @@ final class NotificationPlacementController {
 }
 
 private func notificationObserverCallback(observer: AXObserver, element: AXUIElement, notification: CFString, context: UnsafeMutableRawPointer?) {
-    guard notification as String == kAXWindowCreatedNotification as String,
-          let context = context else {
+    guard notification as String == kAXWindowCreatedNotification as String else {
         return
     }
 
-    let controller = Unmanaged<NotificationPlacementController>.fromOpaque(context).takeUnretainedValue()
+    guard let controller = NotificationPlacementController.currentInstance else { return }
 
     Task { @MainActor in
         controller.handleWindowCreated(element: element)
