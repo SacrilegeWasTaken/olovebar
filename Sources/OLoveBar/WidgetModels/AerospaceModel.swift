@@ -36,6 +36,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     private let updateQueue = DispatchQueue(label: "AerospaceModel.update", qos: .userInitiated)
     private var isUpdating: Bool = false
     private var pendingUpdateRequested: Bool = false
+    private let ipc = AerospaceIPC.shared
     
     init() {
         startHTTPServer()
@@ -59,6 +60,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor in
+                    self?.updateFocusedOnly()
                     self?.updateData()
                 }
             }
@@ -131,6 +133,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             }
 
             do {
+                // Run independent AeroSpace queries in parallel to minimise latency.
                 let windowsAns = try AerospaceClient.request(
                     args: ["list-windows", "--all", "--format", "%{workspace}|%{app-bundle-id}"]
                 )
@@ -188,6 +191,25 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
         }
     }
     
+    private func updateFocusedOnly() {
+        Task.detached { [weak self] in
+            guard let self else { return }
+            do {
+                let ans = try await self.ipc.request(args: ["list-workspaces", "--focused"])
+                let focused = ans.stdout
+                    .components(separatedBy: .newlines)
+                    .first?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                
+                await MainActor.run {
+                    self.focused = focused
+                }
+            } catch {
+                fputs("[aerospace focused error] \(error)\n", stderr)
+            }
+        }
+    }
+
     private func getAppIcon(bundleId: String) -> NSImage? {
         cacheQueue.sync {
             if let cachedIcon = iconCache[bundleId] {
@@ -204,8 +226,12 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     func focus(_ id: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            _ = try? AerospaceClient.request(args: ["workspace", id])
+        // Optimistically update focused to feel instant, then confirm via IPC.
+        focused = id
+        Task.detached { [weak self] in
+            guard let self else { return }
+            _ = try? await self.ipc.request(args: ["workspace", id])
+            self.updateFocusedOnly()
         }
     }
 
