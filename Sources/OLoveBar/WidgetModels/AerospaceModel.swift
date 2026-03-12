@@ -33,6 +33,9 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
     nonisolated(unsafe) private var serverSocket: Int32 = -1
     private let cacheQueue = DispatchQueue(label: "AerospaceModel.iconCache")
+    private let updateQueue = DispatchQueue(label: "AerospaceModel.update", qos: .userInitiated)
+    private var isUpdating: Bool = false
+    private var pendingUpdateRequested: Bool = false
     
     init() {
         startHTTPServer()
@@ -108,22 +111,36 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     private func updateData() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        updateQueue.async { [weak self] in
             guard let self else { return }
+
+            if self.isUpdating {
+                self.pendingUpdateRequested = true
+                return
+            }
+
+            self.isUpdating = true
+            self.pendingUpdateRequested = false
+
+            defer {
+                self.isUpdating = false
+                if self.pendingUpdateRequested {
+                    self.pendingUpdateRequested = false
+                    self.updateData()
+                }
+            }
+
             do {
-                // 1) Windows with workspaces and bundle IDs
                 let windowsAns = try AerospaceClient.request(
                     args: ["list-windows", "--all", "--format", "%{workspace}|%{app-bundle-id}"]
                 )
                 let windowsOutput = windowsAns.stdout
 
-                // 2) All workspaces
                 let allAns = try AerospaceClient.request(
                     args: ["list-workspaces", "--all"]
                 )
                 let allWorkspacesOutput = allAns.stdout
 
-                // 3) Focused workspace
                 let focusedAns = try AerospaceClient.request(
                     args: ["list-workspaces", "--focused"]
                 )
@@ -131,15 +148,15 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                     .components(separatedBy: .newlines)
                     .first?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                
+
                 self.info("Focused workspace: \(focused)")
-            
+
                 let lines = windowsOutput
                     .components(separatedBy: .newlines)
                     .filter { !$0.isEmpty }
 
                 var workspaceMap: [String: Set<String>] = [:]
-                
+
                 for line in lines {
                     let lineParts = line.components(separatedBy: "|")
                     guard lineParts.count == 2 else { continue }
@@ -147,11 +164,11 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                     let bundleId = lineParts[1]
                     workspaceMap[workspaceId, default: []].insert(bundleId)
                 }
-                
+
                 let workspaceIds = allWorkspacesOutput
                     .components(separatedBy: .newlines)
                     .filter { !$0.isEmpty }
-                
+
                 var workspaceInfos: [WorkspaceInfo] = []
                 for workspaceId in workspaceIds {
                     let bundleIds = workspaceMap[workspaceId] ?? []
@@ -160,7 +177,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                     }
                     workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
                 }
-                
+
                 Task { @MainActor [workspaceInfos, focused] in
                     self.workspaces = workspaceInfos
                     self.focused = focused

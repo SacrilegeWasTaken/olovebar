@@ -24,43 +24,16 @@ final class NotchWindowState: ObservableObject {
     func updatePreferredWidth(_ width: CGFloat) {
         let sanitizedWidth = max(0, width)
         guard abs(preferredContentWidth - sanitizedWidth) > 1 else { return }
+
         // Cancel any running interpolation
         widthAnimationTask?.cancel()
 
-        // Do a small immediate step to kick the animation without waiting
-        let current = preferredContentWidth
         let target = sanitizedWidth
-        let initialProgress: Double = 0.15
-        let immediate = CGFloat(Double(current) + (Double(target - current) * initialProgress))
-        // Apply immediate step synchronously on main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.preferredContentWidth = immediate
-        }
-
-        // Smoothly interpolate preferredContentWidth to the new value (shorter duration)
         widthAnimationTask = Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            let start = self.preferredContentWidth
-            let end = target
-            let duration: Double = 0.1
-            let fps: Double = 120
-            let steps = max(1, Int(duration * fps))
-
-            func easeInOutCubic(_ t: Double) -> Double {
-                return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
+            guard let self else { return }
+            withAnimation(.easeInOut(duration: 0.12)) {
+                self.preferredContentWidth = target
             }
-
-            for i in 1...steps {
-                if Task.isCancelled { return }
-                let t = Double(i) / Double(steps)
-                let eased = easeInOutCubic(t)
-                let value = CGFloat(Double(start) + (Double(end - start) * eased))
-                self.preferredContentWidth = value
-                try? await Task.sleep(nanoseconds: UInt64((duration / Double(steps)) * 1_000_000_000))
-            }
-
-            // Ensure final value
-            self.preferredContentWidth = end
             widthAnimationTask = nil
         }
     }

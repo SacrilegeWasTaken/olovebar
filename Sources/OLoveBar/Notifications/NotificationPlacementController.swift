@@ -29,18 +29,10 @@ final class NotificationPlacementController {
         let obs = axObserver
         timer = nil
         axObserver = nil
-        if Thread.isMainThread {
-            t?.invalidate()
-            if let o = obs {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
-            }
-        } else {
-            DispatchQueue.main.sync {
-                t?.invalidate()
-                if let o = obs {
-                    CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
-                }
-            }
+
+        t?.invalidate()
+        if let o = obs {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
         }
     }
 
@@ -68,7 +60,7 @@ final class NotificationPlacementController {
     private func startTimerIfNeeded() {
         guard timer == nil else { return }
 
-        let newTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.tick()
             }

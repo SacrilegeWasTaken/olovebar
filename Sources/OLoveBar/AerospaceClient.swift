@@ -80,7 +80,11 @@ enum AerospaceClient {
         connection.start(queue: queue)
 
         // Wait for ready / failed
-        readySemaphore.wait()
+        let readyWaitResult = readySemaphore.wait(timeout: .now() + 2.0)
+        if readyWaitResult == .timedOut {
+            connection.cancel()
+            throw AerospaceClientError.cannotConnect("timeout waiting for AeroSpace socket to become ready")
+        }
         if let error = lastErrorBox.value {
             throw AerospaceClientError.cannotConnect(error.localizedDescription)
         }
@@ -101,7 +105,11 @@ enum AerospaceClient {
             sendErrorBox.value = sendResultError
             writeSemaphore.signal()
         })
-        writeSemaphore.wait()
+        let writeWaitResult = writeSemaphore.wait(timeout: .now() + 2.0)
+        if writeWaitResult == .timedOut {
+            connection.cancel()
+            throw AerospaceClientError.cannotConnect("timeout sending request to AeroSpace")
+        }
         if let error = sendErrorBox.value {
             throw AerospaceClientError.cannotConnect("write failed: \(error.localizedDescription)")
         }
@@ -143,7 +151,11 @@ enum AerospaceClient {
         }
 
         receiveLoop()
-        readSemaphore.wait()
+        let readWaitResult = readSemaphore.wait(timeout: .now() + 3.0)
+        if readWaitResult == .timedOut {
+            connection.cancel()
+            throw AerospaceClientError.invalidResponse("timeout waiting for response from AeroSpace")
+        }
         connection.cancel()
 
         if let error = receiveErrorBox.value {

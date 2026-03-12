@@ -82,12 +82,11 @@ struct VolumeWidgetView: View {
         // Use a pure AppKit menu for the slider/detail popup.
         let menu = VolumeMenuView.createMenu(model: model, config: config)
 
-        // Position menu: horizontally centered under the widget, slightly below.
         let menuWidth: CGFloat = 320
         let widgetCenterX = widgetFrame.midX
         let menuX = widgetCenterX - (menuWidth / 2)
         let menuY: CGFloat = -12 // Slightly below the widget.
-        
+
         let point = CGPoint(x: menuX, y: menuY)
         menu.popUp(positioning: nil, at: point, in: contentView)
     }

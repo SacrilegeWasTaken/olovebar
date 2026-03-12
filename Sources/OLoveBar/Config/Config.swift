@@ -58,8 +58,14 @@ public final class Config: ObservableObject {
             let table: TOMLTable?
             if FileManager.default.fileExists(atPath: path) {
                 do {
-                    let content = try String(contentsOfFile: path, encoding: .utf8)
+                    let attrs = try FileManager.default.attributesOfItem(atPath: path)
+                    if let fileSize = attrs[.size] as? NSNumber, fileSize.intValue > 1_000_000 {
+                        Utilities.warn("❌ Config file too large at \(path), ignoring", module: .Config, file: #file, function: #function, line: #line)
+                        table = nil
+                    } else {
+                        let content = try String(contentsOfFile: path, encoding: .utf8)
                     table = try TOMLTable(string: content)
+                    }
                 } catch {
                     table = nil
                 }

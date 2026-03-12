@@ -38,14 +38,14 @@ struct NotesWidgetView: View {
     private func showNotesMenu() {
         guard let window = NSApp.windows.first(where: { $0 is OLoveBarWindow }),
               let contentView = window.contentView else { return }
-        
+
         let menu = NotesMenuView.createMenu(model: model, config: config)
-        
+
         let menuWidth: CGFloat = 320
         let widgetCenterX = widgetFrame.midX
         let menuX = widgetCenterX - (menuWidth / 2)
         let menuY: CGFloat = -12
-        
+
         let point = CGPoint(x: menuX, y: menuY)
         menu.popUp(positioning: nil, at: point, in: contentView)
     }

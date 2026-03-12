@@ -43,6 +43,13 @@ final class NotesModel: ObservableObject {
             var loadedNotes: [String: [Note]] = [:]
             if FileManager.default.fileExists(atPath: path) {
                 do {
+                    let attrs = try FileManager.default.attributesOfItem(atPath: path)
+                    if let fileSize = attrs[.size] as? NSNumber, fileSize.intValue > 1_000_000 {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.warn("Notes file too large at \(path), ignoring")
+                        }
+                        throw NSError(domain: "NotesModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Notes file too large"])
+                    }
                     let content = try String(contentsOfFile: path, encoding: .utf8)
                     let table = try TOMLTable(string: content)
                     if let notesTable = table["notes"]?.table {

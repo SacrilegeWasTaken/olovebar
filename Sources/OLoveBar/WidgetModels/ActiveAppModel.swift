@@ -44,6 +44,9 @@ class ActiveAppModel: ObservableObject {
   
     private let requiredStableSnapshots = 3
 
+    /// Hard cap on total stabilization time to avoid long AX hammering.
+    private let maxStabilizationTime: Duration = .seconds(2)
+
 
     init() {
         update()
@@ -139,9 +142,16 @@ class ActiveAppModel: ObservableObject {
 
             var lastSnapshot: [MenuItemData] = []
             var stableCount = 0
+            let stabilizationStart = ContinuousClock.now
 
             for attempt in 0..<self.maxStabilizationAttempts {
                 guard !Task.isCancelled else { return }
+
+                let elapsed = stabilizationStart.duration(to: .now)
+                if elapsed >= self.maxStabilizationTime {
+                    info("⚠️ Menu stabilization time budget exceeded for \(self.appName) after \(attempt) attempts")
+                    break
+                }
 
                 let items = self.extractMenuItems()
 
