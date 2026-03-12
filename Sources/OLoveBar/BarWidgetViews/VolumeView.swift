@@ -20,12 +20,12 @@ struct VolumeSliderView: View {
                 }
             ), in: 0...1)
                 .frame(width: 260)
-                .fixedSize() // Keep slider width constant for stable layout.
+                .fixedSize() // Фиксируем размер слайдера
             Image(systemName: "speaker.wave.3.fill")
                 .foregroundColor(.white)
         }
-        .frame(width: 300, alignment: .center) // Fix overall container width.
-        .fixedSize(horizontal: true, vertical: true) // Prevent resizing when menu appears/disappears.
+        .frame(width: 300, alignment: .center) // Фиксируем ширину всего контейнера
+        .fixedSize(horizontal: true, vertical: true) // Предотвращаем изменение размера
     }
 }
 
@@ -33,7 +33,6 @@ struct VolumeSliderView: View {
 struct VolumeWidgetView: View {
     @ObservedObject var config: Config
     @ObservedObject var model = GlobalModels.shared.volumeModel
-    @State private var widgetFrame: CGRect = .zero
 
     var body: some View {
         Button(action: { showVolumeMenu() }) {
@@ -55,7 +54,7 @@ struct VolumeWidgetView: View {
                 .frame(width: config.volumeWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
+                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )
@@ -64,29 +63,35 @@ struct VolumeWidgetView: View {
                 .animation(.easeInOut(duration: 0.3), value: image)
         }
         .buttonStyle(.plain)
-        .background(
-            GeometryReader { geo in
-                Color.clear.onAppear {
-                    widgetFrame = geo.frame(in: .global)
-                }.onChange(of: geo.frame(in: .global)) {
-                    widgetFrame = geo.frame(in: .global)
-                }
-            }
-        )
     }
     
     private func showVolumeMenu() {
         guard let window = NSApp.windows.first(where: { $0 is OLoveBarWindow }),
               let contentView = window.contentView else { return }
         
-        // Use a pure AppKit menu for the slider/detail popup.
         let menu = VolumeMenuView.createMenu(model: model, config: config)
-
-        let menuWidth: CGFloat = 320
-        let widgetCenterX = widgetFrame.midX
-        let menuX = widgetCenterX - (menuWidth / 2)
-        let menuY: CGFloat = -12 // Slightly below the widget.
-
+        
+        // Фактическая ширина меню.
+        let menuWidth = menu.size.width
+        
+        // Правая граница бара в координатах contentView.
+        let rightEdge = contentView.bounds.width
+        
+        // В правом HStack порядок:
+        // Notes, WiFi, Battery, Language, Volume, DateTime.
+        // Для Volume справа только DateTime.
+        let volumeWidth = config.volumeWidth
+        let dateTimeWidth = config.dateTimeWidth
+        let spacing = config.leftSpacing
+        
+        let widgetCenterX = rightEdge
+            - dateTimeWidth
+            - spacing
+            - volumeWidth / 2
+        
+        let menuX = widgetCenterX - menuWidth / 2
+        let menuY: CGFloat = -12 // Чуть ниже виджета
+        
         let point = CGPoint(x: menuX, y: menuY)
         menu.popUp(positioning: nil, at: point, in: contentView)
     }
@@ -113,7 +118,7 @@ struct VolumeWidgetView: View {
 import AppKit
 import AVFoundation
 
-/// Pure AppKit implementation of the volume popup menu (no SwiftUI inside NSMenu).
+/// Чистая AppKit реализация меню громкости без SwiftUI
 @MainActor
 final class VolumeMenuView {
     
@@ -121,12 +126,12 @@ final class VolumeMenuView {
         let menu = NSMenu()
         menu.autoenablesItems = false
         
-        // Section header: "Sound".
+        // Заголовок "Sound"
         let titleItem = NSMenuItem()
         titleItem.view = createTitleView(text: "Sound")
         menu.addItem(titleItem)
         
-        // Volume slider section.
+        // Слайдер громкости
         let sliderItem = NSMenuItem()
         sliderItem.view = createVolumeSlider(model: model)
         menu.addItem(sliderItem)
@@ -151,7 +156,7 @@ final class VolumeMenuView {
             )
             menu.addItem(deviceItem)
             
-            // Small vertical spacer between devices (except the last one).
+            // Пара пикселей между элементами (кроме последнего)
             if index < model.outputDevices.count - 1 {
                 let spacerItem = NSMenuItem()
                 spacerItem.view = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 4))
@@ -161,7 +166,7 @@ final class VolumeMenuView {
         
         menu.addItem(.separator())
         
-        // System sound settings shortcut.
+        // Sound Settings
         let settingsItem = NSMenuItem(
             title: "Sound Settings",
             action: #selector(VolumeMenuTarget.openSettings),
@@ -190,19 +195,19 @@ final class VolumeMenuView {
     private static func createVolumeSlider(model: VolumeModel) -> NSView {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 32))
         
-        // Leading icon.
+        // Иконка слева
         let leftIcon = NSImageView(frame: NSRect(x: 12, y: 8, width: 16, height: 16))
         leftIcon.image = NSImage(systemSymbolName: "speaker.slash.fill", accessibilityDescription: nil)
         leftIcon.contentTintColor = .labelColor
         
-        // NSSlider itself.
+        // Слайдер
         let slider = NSSlider(frame: NSRect(x: 36, y: 8, width: 248, height: 16))
         slider.minValue = 0
         slider.maxValue = 1
         slider.doubleValue = Double(model.level)
         slider.isContinuous = true
         
-        // Give slider a slightly rounded track.
+        // Скругление слайдера
         slider.wantsLayer = true
         slider.layer?.cornerRadius = 6
         
@@ -211,7 +216,7 @@ final class VolumeMenuView {
         slider.action = #selector(VolumeSliderTarget.sliderChanged(_:))
         objc_setAssociatedObject(slider, "target", sliderTarget, .OBJC_ASSOCIATION_RETAIN)
         
-        // Trailing icon.
+        // Иконка справа
         let rightIcon = NSImageView(frame: NSRect(x: 292, y: 8, width: 16, height: 16))
         rightIcon.image = NSImage(systemSymbolName: "speaker.wave.3.fill", accessibilityDescription: nil)
         rightIcon.contentTintColor = .labelColor
@@ -307,7 +312,7 @@ private class VolumeSliderTarget: NSObject {
         self.slider = slider
         super.init()
         
-        // Reactively update NSSlider when VolumeModel.level changes.
+        // Подписываемся на изменения model.level для реактивного обновления слайдера
         self.cancellable = model.$level.sink { [weak slider] newValue in
             Task { @MainActor in
                 slider?.doubleValue = Double(newValue)
@@ -346,12 +351,12 @@ private class DeviceClickTarget: NSObject {
             return
         }
         
-        // Clear highlight from all devices in the menu.
+        // Снимаем подсветку со всех устройств в меню
         for item in menu.items {
             item.view?.subviews.first?.layer?.backgroundColor = NSColor.clear.cgColor
         }
         
-        // Highlight the newly selected output device with system selection color.
+        // Подсвечиваем выбранное устройство системным цветом
         highlightView.layer?.backgroundColor = NSColor.selectedContentBackgroundColor.cgColor
     }
 }

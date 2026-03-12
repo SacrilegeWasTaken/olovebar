@@ -8,7 +8,6 @@ struct NotesWidgetView: View {
     @ObservedObject var config: Config
     @ObservedObject var model = GlobalModels.shared.notesModel
     @State private var widgetFrame: CGRect = .zero
-    
     var body: some View {
         Button(action: { showNotesMenu() }) {
             Image(systemName: "list.bullet")
@@ -16,7 +15,7 @@ struct NotesWidgetView: View {
                 .frame(width: config.notesWidth, height: config.widgetHeight)
                 .background(
                     LiquidGlassBackground(
-                        variant: GlassVariant.safe(from: config.widgetGlassVariant),
+                        variant: GlassVariant(rawValue: config.widgetGlassVariant)!,
                         cornerRadius: config.widgetCornerRadius
                     ) {}
                 )
@@ -26,11 +25,13 @@ struct NotesWidgetView: View {
         .buttonStyle(.plain)
         .background(
             GeometryReader { geo in
-                Color.clear.onAppear {
-                    widgetFrame = geo.frame(in: .global)
-                }.onChange(of: geo.frame(in: .global)) {
-                    widgetFrame = geo.frame(in: .global)
-                }
+                Color.clear
+                    .onAppear {
+                        widgetFrame = geo.frame(in: .named("BarRoot"))
+                    }
+                    .onChange(of: geo.frame(in: .named("BarRoot"))) {
+                        widgetFrame = geo.frame(in: .named("BarRoot"))
+                    }
             }
         )
     }
@@ -38,14 +39,13 @@ struct NotesWidgetView: View {
     private func showNotesMenu() {
         guard let window = NSApp.windows.first(where: { $0 is OLoveBarWindow }),
               let contentView = window.contentView else { return }
-
+        
         let menu = NotesMenuView.createMenu(model: model, config: config)
-
-        let menuWidth: CGFloat = 320
+        let menuWidth = menu.size.width
         let widgetCenterX = widgetFrame.midX
         let menuX = widgetCenterX - (menuWidth / 2)
         let menuY: CGFloat = -12
-
+        
         let point = CGPoint(x: menuX, y: menuY)
         menu.popUp(positioning: nil, at: point, in: contentView)
     }
@@ -603,8 +603,7 @@ private class NoteInputTarget: NSObject, NSTextFieldDelegate {
     @MainActor
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            guard let field = control as? NSTextField else { return false }
-            submit(field)
+            submit(control as! NSTextField)
             return true
         }
         return false

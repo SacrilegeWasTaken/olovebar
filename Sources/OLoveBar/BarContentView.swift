@@ -31,7 +31,7 @@ struct BarContentView: View {
                     AerospaceWidgetView(config: config)
                     ActiveAppWidgetView(config: config)
                 }
-
+                
                 Spacer()
                 
                 HStack(spacing: config.leftSpacing) {
@@ -44,5 +44,6 @@ struct BarContentView: View {
                 }
             }
         }
+        .coordinateSpace(name: "BarRoot")
     }
 }
