@@ -20,10 +20,6 @@ deploy:
 	
 tap:
 	TAP_DIR=~/Projects/Utilities/tap uv run Script/Tap.py 
-	nix hash file --type sha256 --base64 .build/OLoveBar.dmg
-
-only-tap:
-	TAP_DIR=~/Projects/Utilities/tap uv run Script/Tap.py 
 
 release: build bundle deploy
 
