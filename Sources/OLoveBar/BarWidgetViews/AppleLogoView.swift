@@ -89,9 +89,9 @@ fileprivate struct ConfigEditorView: View {
                         VStack(spacing: 16) {
                             if selectedTab == 0 {
                                 SettingsSection(title: "Window") {
-                                    GlassStepper(title: "Height", value: $config.barHeight, range: 20...80)
-                                    GlassStepper(title: "Horizontal Padding", value: $config.barHorizontalCut, range: 0...50)
-                                    GlassStepper(title: "Vertical Padding", value: $config.barVerticalCut, range: 0...50)
+                                    GlassStepper(title: "Height", value: $config.barHeight, range: 20...80, step: 0.5)
+                                    GlassStepper(title: "Horizontal Padding", value: $config.barHorizontalCut, range: 0...50, step: 0.5)
+                                    GlassStepper(title: "Vertical Padding", value: $config.barVerticalCut, range: 0...50, step: 0.5)
                                     GlassStepper(title: "Corner Radius", value: $config.windowCornerRadius, range: 0...40)
                                     GlassStepper(title: "Glass Variant", value: $config.windowGlassVariant, range: 0...19)
                                 }
@@ -119,7 +119,7 @@ fileprivate struct ConfigEditorView: View {
                             } else {
                                 SettingsSection(title: "Appearance") {
                                     GlassStepper(title: "Glass Variant", value: $config.widgetGlassVariant, range: 0...19)
-                                    GlassStepper(title: "Height", value: $config.widgetHeight, range: 0...200)
+                                    GlassStepper(title: "Height", value: $config.widgetHeight, range: 0...200, step: 0.5)
                                     GlassStepper(title: "Corner Radius", value: $config.widgetCornerRadius, range: 0...80)
                                 }
                                 

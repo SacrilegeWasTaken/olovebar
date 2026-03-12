@@ -12,8 +12,8 @@ public final class Config: ObservableObject {
     // MARK: - Window Configuration
     @Published public var barHeight: CGFloat = 35
     @Published public var barHorizontalCut: CGFloat = 10
-    @Published public var barVerticalCut: CGFloat = 2
-    @Published public var windowGlassVariant: Int = 12
+    @Published public var barVerticalCut: CGFloat = 4.5
+    @Published public var windowGlassVariant: Int = 14
     @Published public var windowCornerRadius: CGFloat = 16
     @Published public var notchMinimumWidth: CGFloat = 700
     @Published public var hideWindowOnFullScreen: Bool = true
@@ -26,7 +26,7 @@ public final class Config: ObservableObject {
 
     // MARK: - Widget Configuration
     @Published public var appleLogoWidth: CGFloat = 45
-    @Published public var aerospaceWidth: CGFloat = 33
+    @Published public var aerospaceWidth: CGFloat = 4
     @Published public var activeAppWidth: CGFloat = 70
     @Published public var dateTimeWidth: CGFloat = 190
     @Published public var widgetHeight: CGFloat = 33
@@ -48,34 +48,30 @@ public final class Config: ObservableObject {
         let configPath = home.appendingPathComponent(".config/olovebar/olovebar.toml").path
         self.path = configPath
         Self.currentInstance = self
-        loadAsync()
+        loadSync()
     }
 
-    // MARK: - Load (async to avoid blocking main)
-    private func loadAsync() {
+    // MARK: - Load (synchronous, config file is tiny)
+    private func loadSync() {
         let path = self.path
-        DispatchQueue.global(qos: .utility).async {
-            let table: TOMLTable?
-            if FileManager.default.fileExists(atPath: path) {
-                do {
-                    let attrs = try FileManager.default.attributesOfItem(atPath: path)
-                    if let fileSize = attrs[.size] as? NSNumber, fileSize.intValue > 1_000_000 {
-                        Utilities.warn("❌ Config file too large at \(path), ignoring", module: .Config, file: #file, function: #function, line: #line)
-                        table = nil
-                    } else {
-                        let content = try String(contentsOfFile: path, encoding: .utf8)
-                    table = try TOMLTable(string: content)
-                    }
-                } catch {
+        let table: TOMLTable?
+        if FileManager.default.fileExists(atPath: path) {
+            do {
+                let attrs = try FileManager.default.attributesOfItem(atPath: path)
+                if let fileSize = attrs[.size] as? NSNumber, fileSize.intValue > 1_000_000 {
+                    Utilities.warn("❌ Config file too large at \(path), ignoring", module: .Config, file: #file, function: #function, line: #line)
                     table = nil
+                } else {
+                    let content = try String(contentsOfFile: path, encoding: .utf8)
+                    table = try TOMLTable(string: content)
                 }
-            } else {
+            } catch {
                 table = nil
             }
-            DispatchQueue.main.async {
-                Config.currentInstance?.applyLoaded(table: table)
-            }
+        } else {
+            table = nil
         }
+        applyLoaded(table: table)
     }
 
     private func applyLoaded(table: TOMLTable?) {
