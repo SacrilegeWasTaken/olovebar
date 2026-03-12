@@ -107,126 +107,66 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private static func runCommand(_ command: String) -> String {
-        // Ensure we resolve the aerospace CLI to an absolute path when possible
-        if command.hasPrefix("aerospace ") || command == "aerospace" {
-            if let path = resolveAerospacePath() {
-                // replace only the first occurrence (the command)
-                let remainder = command.dropFirst("aerospace".count)
-                return runCommand(String(path) + String(remainder))
-            }
-        }
-
-        let task = Process()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        task.standardOutput = outPipe
-        task.standardError = errPipe
-        task.arguments = ["-c", command]
-        task.launchPath = "/bin/zsh"
-
-        // Ensure PATH includes common locations (Homebrew, /usr/local) so external tools are found when running inside a .app bundle
-        var env = ProcessInfo.processInfo.environment
-        let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-        let existingPATH = env["PATH"] ?? ""
-        let combined = (extraPaths + [existingPATH]).joined(separator: ":")
-        env["PATH"] = combined
-        task.environment = env
-
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            return ""
-        }
-
-        let outData = outPipe.fileHandleForReading.readDataToEndOfFile()
-        let errData = errPipe.fileHandleForReading.readDataToEndOfFile()
-        let out = String(decoding: outData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        let err = String(decoding: errData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        if !err.isEmpty {
-            // Print stderr to aid debugging when app is launched from Finder
-            fputs("[aerospace stderr] \(err)\n", stderr)
-        }
-        return out
-    }
-
-    nonisolated(unsafe) private static var cachedAerospacePath: String?
-    private static let pathCacheQueue = DispatchQueue(label: "AerospaceModel.pathCache")
-
-    private static func resolveAerospacePath() -> String? {
-        pathCacheQueue.sync {
-            if let cached = cachedAerospacePath, FileManager.default.fileExists(atPath: cached) {
-                return cached
-            }
-
-            // Check common locations first
-            let candidates = [
-                "/opt/homebrew/bin/aerospace",
-                "/usr/local/bin/aerospace",
-                "/usr/bin/aerospace",
-                "/bin/aerospace"
-            ]
-            for c in candidates {
-                if FileManager.default.isExecutableFile(atPath: c) {
-                    cachedAerospacePath = c
-                    return c
-                }
-            }
-
-            // Fallback: check PATH environment
-            if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
-                for dir in pathEnv.split(separator: ":") {
-                    let p = String(dir) + "/aerospace"
-                    if FileManager.default.isExecutableFile(atPath: p) {
-                        cachedAerospacePath = p
-                        return p
-                    }
-                }
-            }
-
-            return nil
-        }
-    }
-
     private func updateData() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            let combinedCommand = "aerospace list-windows --all --format '%{workspace}|%{app-bundle-id}'; echo '---FOCUSED---'; aerospace list-workspaces --focused; echo '---ALL---'; aerospace list-workspaces --all"
-            let output = AerospaceModel.runCommand(combinedCommand)
-            let parts = output.components(separatedBy: "---FOCUSED---")
-            let windowsOutput = parts.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let afterFocused = parts.dropFirst().joined(separator: "---FOCUSED---").trimmingCharacters(in: .whitespacesAndNewlines)
-            let focusedAndAll = afterFocused.components(separatedBy: "---ALL---")
-            let focused = focusedAndAll.first?.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: .newlines).first ?? ""
-            let allWorkspacesOutput = focusedAndAll.dropFirst().joined(separator: "---ALL---").trimmingCharacters(in: .whitespacesAndNewlines)
-            self.info("Focused workspace: \(focused)")
+            do {
+                // 1) Windows with workspaces and bundle IDs
+                let windowsAns = try AerospaceClient.request(
+                    args: ["list-windows", "--all", "--format", "%{workspace}|%{app-bundle-id}"]
+                )
+                let windowsOutput = windowsAns.stdout
+
+                // 2) All workspaces
+                let allAns = try AerospaceClient.request(
+                    args: ["list-workspaces", "--all"]
+                )
+                let allWorkspacesOutput = allAns.stdout
+
+                // 3) Focused workspace
+                let focusedAns = try AerospaceClient.request(
+                    args: ["list-workspaces", "--focused"]
+                )
+                let focused = focusedAns.stdout
+                    .components(separatedBy: .newlines)
+                    .first?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                
+                self.info("Focused workspace: \(focused)")
             
-            let lines = windowsOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            var workspaceMap: [String: Set<String>] = [:]
-            
-            for line in lines {
-                let lineParts = line.components(separatedBy: "|")
-                guard lineParts.count == 2 else { continue }
-                let workspaceId = lineParts[0]
-                let bundleId = lineParts[1]
-                workspaceMap[workspaceId, default: []].insert(bundleId)
-            }
-            
-            let workspaceIds = allWorkspacesOutput.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            
-            var workspaceInfos: [WorkspaceInfo] = []
-            for workspaceId in workspaceIds {
-                let bundleIds = workspaceMap[workspaceId] ?? []
-                let apps = bundleIds.sorted().map { bundleId in
-                    AppInfo(id: bundleId, bundleId: bundleId, icon: self.getAppIcon(bundleId: bundleId))
+                let lines = windowsOutput
+                    .components(separatedBy: .newlines)
+                    .filter { !$0.isEmpty }
+
+                var workspaceMap: [String: Set<String>] = [:]
+                
+                for line in lines {
+                    let lineParts = line.components(separatedBy: "|")
+                    guard lineParts.count == 2 else { continue }
+                    let workspaceId = lineParts[0]
+                    let bundleId = lineParts[1]
+                    workspaceMap[workspaceId, default: []].insert(bundleId)
                 }
-                workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
-            }
-            
-            Task { @MainActor [workspaceInfos, focused] in
-                self.workspaces = workspaceInfos
-                self.focused = focused
+                
+                let workspaceIds = allWorkspacesOutput
+                    .components(separatedBy: .newlines)
+                    .filter { !$0.isEmpty }
+                
+                var workspaceInfos: [WorkspaceInfo] = []
+                for workspaceId in workspaceIds {
+                    let bundleIds = workspaceMap[workspaceId] ?? []
+                    let apps = bundleIds.sorted().map { bundleId in
+                        AppInfo(id: bundleId, bundleId: bundleId, icon: self.getAppIcon(bundleId: bundleId))
+                    }
+                    workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
+                }
+                
+                Task { @MainActor [workspaceInfos, focused] in
+                    self.workspaces = workspaceInfos
+                    self.focused = focused
+                }
+            } catch {
+                fputs("[aerospace socket error] \(error)\n", stderr)
             }
         }
     }
@@ -248,7 +188,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
 
     func focus(_ id: String) {
         DispatchQueue.global(qos: .userInitiated).async {
-            _ = AerospaceModel.runCommand("aerospace workspace \(id)")
+            _ = try? AerospaceClient.request(args: ["workspace", id])
         }
     }
 

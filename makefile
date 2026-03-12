@@ -1,4 +1,4 @@
-.PHONY: default setup build deploy push
+.PHONY: default setup build deploy tap only-tap
 
 default: run
 
