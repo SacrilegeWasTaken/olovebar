@@ -95,18 +95,4 @@ exec-on-workspace-change = [
 
 Left-click on the Apple logo to toggle the background style between **Glass** and **Fully Transparent**:
 
-![Transparent Theme](Assets/transparent_theme.png)
-![Two-Layer Theme](Assets/two_layer_theme.png)
-
-### Notch Widget
-
-![Notch Widget](Assets/notch.png)
-
-### Volume Control
-
-![Volume Widget](Assets/volume.png)
-
-### Settings Menu
-
-![Settings](Assets/settings.png)
-![Window Settings](Assets/windowsettings.png)
+![Visuals](Assets/collage.png)
