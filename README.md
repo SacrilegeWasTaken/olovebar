@@ -69,30 +69,33 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 
 # Installation
 
-**Note! I'm not enrolled Apple Developer yet, so you have to remove codesign checking attribute manually**
-
-1. **Download the [latest release .dmg](https://github.com/SacrilegeWasTaken/olovebar/releases)**
-
-2. **Open .dmg and drag-n-drop OLoveBar into Applications folder link**
-
-3. **Run the following into the terminal**
+**Homebrew**
 ```sh
-sudo xattr -rd com.apple.quarantine /Applications/OLoveBar.app
+# pointing to codeberg tap repo
+brew tap sacrilegewastaken/tap https://codeberg.org/sacrilegewastaken/tap.git 
+# pointing to github tap repo
+brew tap SacrilegeWasTaken/tap
+# now install
+brew install --cask olovebar
 ```
 
-4. **Add the following into `~/.config/aerospace/aerospace.toml`**
-```toml
-exec-on-workspace-change = [
-  "/bin/zsh",
-  "-c",
-  "curl -s localhost:43551"
-]
+**Nix**
+Add this to your flake inputs
+```nix
+inputs = {
+  ...
+  olovebar.url = "git+https://codeberg.org/sacrilegewastaken/olovebar.git";
+};
 ```
 
+And this to your system packages
+```nix
+environment.systemPackages = [
+  olovebar.packages.aarch64-darwin.default
+];
+
+You can also use nix-homebrew, you can check the configuration in my [nix repository](https://codeberg.org/sacrilegewastaken/nix)
+```
 ## Screenshots
-
-### Main Styles
-
-Left-click on the Apple logo to toggle the background style between **Glass** and **Fully Transparent**:
 
 ![Visuals](Assets/collage.png)
