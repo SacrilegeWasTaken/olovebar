@@ -93,9 +93,8 @@ And this to your system packages
 environment.systemPackages = [
   olovebar.packages.aarch64-darwin.default
 ];
-
-You can also use nix-homebrew, you can check the configuration in my [nix repository](https://codeberg.org/sacrilegewastaken/nix)
 ```
+You can also use nix-homebrew, you can check the configuration in my [nix repository](https://codeberg.org/sacrilegewastaken/nix)
 ## Screenshots
 
 ![Visuals](Assets/collage.png)
