@@ -31,9 +31,7 @@ final class LanguageModel: ObservableObject {
                 self.info("Language: \(self.current)")
             }
         }
-        if let obs = obs as? NSObjectProtocol {
-            _observer.withLock { $0 = SendableObserver(observer: obs) }
-        }
+        _observer.withLock { $0 = SendableObserver(observer: obs) }
     }
 
     deinit {

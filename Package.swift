@@ -42,12 +42,18 @@ let package = Package(
             dependencies: []
         ),
 
+        // MARK: - Keyboard Wrapper
+        .target(
+            name: "KeyboardWrapper",
+            dependencies: []
+        ),
+
 
 
         // MARK: - Executable
         .executableTarget(
             name: "OLoveBar",
-            dependencies: ["Utilities", "MacroAPI", "TOMLKit"]
+            dependencies: ["Utilities", "MacroAPI", "TOMLKit", "KeyboardWrapper"]
         )
     ]
 )
