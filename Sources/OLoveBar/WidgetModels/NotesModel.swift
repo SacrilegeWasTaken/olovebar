@@ -170,10 +170,12 @@ final class NotesModel: ObservableObject {
     }
     
     func save() {
+        // Capture a thread-safe snapshot (avoid passing DateFormatter across threads)
+        let dateFormat = dateFormatter.dateFormat ?? "yyyy-MM-dd"
         let snapshot = (
             path: path,
             notes: notes,
-            dateFormatter: dateFormatter
+            dateFormat: dateFormat
         )
         
         DispatchQueue.global(qos: .utility).async {
@@ -184,9 +186,12 @@ final class NotesModel: ObservableObject {
             let cutoffDate = calendar.date(byAdding: .day, value: -30, to: Date())
                 ?? Date().addingTimeInterval(-30 * 24 * 3600)
             
+            let cutoffFormatter = DateFormatter()
+            cutoffFormatter.dateFormat = snapshot.dateFormat
+            
             for (dateKey, dateNotes) in snapshot.notes {
                 // Skip notes older than 30 days
-                if let noteDate = snapshot.dateFormatter.date(from: dateKey),
+                if let noteDate = cutoffFormatter.date(from: dateKey),
                    noteDate < cutoffDate {
                     continue
                 }

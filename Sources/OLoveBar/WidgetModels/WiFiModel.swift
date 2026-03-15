@@ -3,30 +3,6 @@ import SwiftUI
 import MacroAPI
 import Network
 
-// @MainActor
-// class MyViewModel: ObservableObject {
-//     @Published var text = "Loading..."
-    
-//     func loadData() {
-//         Task { // create an async task
-//             // Switch to a background thread
-//             let result = await Task.detached(priority: .background) {
-//                 // This runs off the main/UI thread
-//                 heavyCalculation()
-//             }.value
-
-//             // Automatically hop back to the main actor (ViewModel is @MainActor)
-//             text = "Result: \(result)"
-//         }
-//     }
-// }
-
-// func heavyCalculation() -> Int {
-//     // Example of a long CPU-bound operation
-//     (0..<100_000_000).reduce(0, +)
-// }
-
-
 
 @MainActor
 @LogFunctions(.Widgets([.wifiModel]))
@@ -78,21 +54,27 @@ final class WiFiModel: ObservableObject {
     
     private func updateWiFiSignal(interface: String) {
         let cmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/ agrCtlRSSI/ {print $2}'"
-        let result = run(cmd)
-        signalStrength = Int(result) ?? 0
-        
-        if signalStrength >= -50 {
-            stateIcon = "wifi"
-        } else if signalStrength >= -60 {
-            stateIcon = "wifi"
-        } else if signalStrength >= -70 {
-            stateIcon = "wifi"
-        } else {
-            stateIcon = "wifi"
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = WiFiModel.runShell(cmd)
+            let strength = Int(result) ?? 0
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.signalStrength = strength
+                if strength >= -50 {
+                    self.stateIcon = "wifi"
+                } else if strength >= -60 {
+                    self.stateIcon = "wifi"
+                } else if strength >= -70 {
+                    self.stateIcon = "wifi"
+                } else {
+                    self.stateIcon = "wifi"
+                }
+            }
         }
     }
 
-    private func run(_ cmd: String) -> String {
+    /// Runs a shell command on the calling thread (must be called off MainActor).
+    private nonisolated static func runShell(_ cmd: String) -> String {
         let task = Process()
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -115,14 +97,19 @@ final class WiFiModel: ObservableObject {
         ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
         networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\\t//p'
         """
-        let result = self.run(cmd)
-        info("WiFi update - raw: '\(result)'")
-        if result.isEmpty {
-            self.ssid = nil
-            self.idealWidth = 100
-        } else {
-            self.ssid = result
-            self.idealWidth = self.calculateIdealWidth(for: result)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = WiFiModel.runShell(cmd)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.info("WiFi update - raw: '\(result)'")
+                if result.isEmpty {
+                    self.ssid = nil
+                    self.idealWidth = 100
+                } else {
+                    self.ssid = result
+                    self.idealWidth = self.calculateIdealWidth(for: result)
+                }
+            }
         }
     }
     

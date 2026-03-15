@@ -10,7 +10,7 @@ import MacroAPI
 @MainActor
 @LogFunctions(.Widgets([.batteryModel]))
 final class BatteryModel: ObservableObject {
-    fileprivate static nonisolated(unsafe) weak var currentInstance: BatteryModel?
+    static let shared = BatteryModel()
 
     @Published var percentage: Int = 0
     @Published var isCharging: Bool = false
@@ -18,20 +18,18 @@ final class BatteryModel: ObservableObject {
     @Published var timeToFullCharge: String = ""
     @Published var isLowPowerMode: Bool = false
 
-    nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource!
-    nonisolated(unsafe) private var powerModeObserver: NSObjectProtocol!
+    nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource?
+    nonisolated(unsafe) private var powerModeObserver: NSObjectProtocol?
 
     init() {
-        Self.currentInstance = self
         update()
         setupPowerNotifications()
         setupLowPowerModeObserver()
     }
 
     deinit {
-        Self.currentInstance = nil
-        if let powerSourceLoop {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSourceLoop, .defaultMode)
+        if let loop = powerSourceLoop {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), loop, .defaultMode)
         }
         if let powerModeObserver {
             NotificationCenter.default.removeObserver(powerModeObserver)
@@ -40,7 +38,7 @@ final class BatteryModel: ObservableObject {
 
     private func setupPowerNotifications() {
         powerSourceLoop = IOPSNotificationCreateRunLoopSource({ _ in
-            guard let model = BatteryModel.currentInstance else { return }
+            guard let model = BatteryModel.shared as BatteryModel? else { return }
             Task { @MainActor in
                 model.update()
             }

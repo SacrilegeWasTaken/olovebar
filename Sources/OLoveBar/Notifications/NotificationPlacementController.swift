@@ -1,36 +1,41 @@
 import AppKit
 @preconcurrency import ApplicationServices
 import Combine
+import os
 
 /// Controls placement of macOS notification banners using Accessibility.
 /// This mirrors the general idea of tools like PingPlace, but is implemented
 /// specifically for OLoveBar and driven by its `Config`.
 @MainActor
 final class NotificationPlacementController {
-    fileprivate static nonisolated(unsafe) weak var currentInstance: NotificationPlacementController?
+    static let shared = NotificationPlacementController(config: Config.shared)
 
     private let config: Config
     private var cancellables = Set<AnyCancellable>()
-    nonisolated(unsafe) private var timer: Timer?
-    nonisolated(unsafe) private var axObserver: AXObserver?
+    
+    private struct SendableTimer: @unchecked Sendable {
+        let timer: Timer
+    }
+    
+    private let _timer = OSAllocatedUnfairLock<SendableTimer?>(initialState: nil)
+    private let _axObserver = OSAllocatedUnfairLock<AXObserver?>(initialState: nil)
     /// Baseline banner origin used in "offset" mode to avoid cumulative drift.
     private var offsetBaselineOrigin: CGPoint?
 
     init(config: Config) {
         self.config = config
-        Self.currentInstance = self
         observeConfig()
         updateRunningState()
     }
 
     deinit {
-        Self.currentInstance = nil
-        let t = timer
-        let obs = axObserver
-        timer = nil
-        axObserver = nil
+        let obs = _axObserver.withLock { let o = $0; $0 = nil; return o }
+        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
 
-        t?.invalidate()
+        Task { @MainActor in
+            boxedTimer?.timer.invalidate()
+        }
+
         if let o = obs {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
         }
@@ -58,7 +63,7 @@ final class NotificationPlacementController {
     }
 
     private func startTimerIfNeeded() {
-        guard timer == nil else { return }
+        guard _timer.withLock({ $0 }) == nil else { return }
 
         let newTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -66,16 +71,18 @@ final class NotificationPlacementController {
             }
         }
         RunLoop.main.add(newTimer, forMode: .common)
-        timer = newTimer
+        
+        let sendableT = SendableTimer(timer: newTimer)
+        _timer.withLock { $0 = sendableT }
     }
 
     private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
+        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
+        boxedTimer?.timer.invalidate()
     }
 
     private func setupObserverIfNeeded() {
-        guard axObserver == nil else { return }
+        guard _axObserver.withLock({ $0 }) == nil else { return }
 
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
         guard let app = apps.first else { return }
@@ -84,7 +91,7 @@ final class NotificationPlacementController {
         let result = AXObserverCreate(app.processIdentifier, notificationObserverCallback, &observer)
         guard result == .success, let observer else { return }
 
-        axObserver = observer
+        _axObserver.withLock { $0 = observer }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
@@ -96,9 +103,12 @@ final class NotificationPlacementController {
     }
 
     private func tearDownObserver() {
-        guard let observer = axObserver else { return }
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        axObserver = nil
+        _axObserver.withLock { obs in
+            if let observer = obs {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+            }
+            obs = nil
+        }
     }
 
     private func tick() {
@@ -181,7 +191,7 @@ final class NotificationPlacementController {
               CFGetTypeID(cfValue) == AXValueGetTypeID() else {
             return nil
         }
-        let axValue = (cfValue as AnyObject) as! AXValue
+        let axValue = cfValue as! AXValue
 
         var rect = CGRect.zero
         guard AXValueGetType(axValue) == .cgRect,
@@ -233,14 +243,11 @@ final class NotificationPlacementController {
 }
 
 private func notificationObserverCallback(observer: AXObserver, element: AXUIElement, notification: CFString, context: UnsafeMutableRawPointer?) {
-    guard notification as String == kAXWindowCreatedNotification as String else {
-        return
-    }
+    guard let context = context else { return }
+    let controller = Unmanaged<NotificationPlacementController>.fromOpaque(context).takeUnretainedValue()
 
-    guard let controller = NotificationPlacementController.currentInstance else { return }
-
-    Task { @MainActor in
-        controller.handleWindowCreated(element: element)
+    Task { @MainActor [weak controller] in
+        controller?.handleWindowCreated(element: element)
     }
 }
 

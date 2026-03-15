@@ -10,17 +10,20 @@ struct AudioDevice: Identifiable, Equatable {
 }
 
 private func audioPropertyListener(_ objectID: AudioObjectID, _ numAddresses: UInt32, _ addresses: UnsafePointer<AudioObjectPropertyAddress>, _ clientData: UnsafeMutableRawPointer?) -> OSStatus {
-    guard let model = VolumeModel.currentInstance else { return 0 }
+    guard let clientData = clientData else { return noErr }
+    let instance = Unmanaged<VolumeModel>.fromOpaque(clientData).takeUnretainedValue()
+    
     Task { @MainActor in
-        model.update()
+        if numAddresses > 0 {  }
+        instance.update()
     }
     return 0
 }
 
 @MainActor
 @LogFunctions(.Widgets([.volumeModel]))
-final class VolumeModel: ObservableObject {
-    fileprivate static nonisolated(unsafe) weak var currentInstance: VolumeModel?
+public final class VolumeModel: ObservableObject {
+    public static let shared = VolumeModel()
 
     var prevLevel: Float = 0.5
     @Published var level: Float = 0.5
@@ -31,26 +34,24 @@ final class VolumeModel: ObservableObject {
     nonisolated(unsafe) private var storedDeviceID: AudioDeviceID = 0
 
     public init() {
-        Self.currentInstance = self
-        level = getVolume()
-        currentDeviceID = getDefaultOutputDevice()
-        storedDeviceID = currentDeviceID
-        outputDevices = getOutputDevices()
+        update()
         setupListeners()
     }
 
     nonisolated deinit {
-        Self.currentInstance = nil
         let deviceID = storedDeviceID
         var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar, mScope: kAudioDevicePropertyScopeOutput, mElement: kAudioObjectPropertyElementMain)
-        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, selfPtr)
         address.mSelector = kAudioDevicePropertyMute
-        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, selfPtr)
+        address.mSelector = kAudioHardwareServiceDeviceProperty_VirtualMainVolume
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, selfPtr)
         address.mSelector = kAudioHardwarePropertyDefaultOutputDevice
         address.mScope = kAudioObjectPropertyScopeGlobal
-        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, selfPtr)
         address.mSelector = kAudioHardwarePropertyDevices
-        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        AudioObjectRemovePropertyListener(AudioObjectID(kAudioObjectSystemObject), &address, audioPropertyListener, selfPtr)
     }
 
     private func setupListeners() {
@@ -68,7 +69,8 @@ final class VolumeModel: ObservableObject {
             mScope: selector == kAudioHardwarePropertyDefaultOutputDevice || selector == kAudioHardwarePropertyDevices ? kAudioObjectPropertyScopeGlobal : kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioObjectAddPropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AudioObjectAddPropertyListener(deviceID, &address, audioPropertyListener, selfPtr)
     }
 
     private func removeListener(deviceID: AudioDeviceID, selector: AudioObjectPropertySelector) {
@@ -77,7 +79,8 @@ final class VolumeModel: ObservableObject {
             mScope: selector == kAudioHardwarePropertyDefaultOutputDevice || selector == kAudioHardwarePropertyDevices ? kAudioObjectPropertyScopeGlobal : kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, Unmanaged.passUnretained(self).toOpaque())
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AudioObjectRemovePropertyListener(deviceID, &address, audioPropertyListener, selfPtr)
     }
 
     fileprivate func update() {

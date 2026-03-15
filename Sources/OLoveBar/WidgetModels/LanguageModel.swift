@@ -1,17 +1,23 @@
-import Foundation
+@preconcurrency import Foundation
 import SwiftUI
 import MacroAPI
 import Carbon
+import os
 
 @MainActor
 @LogFunctions(.Widgets([.languageModel]))
 final class LanguageModel: ObservableObject {
     @Published var current: String = "EN"
-    nonisolated(unsafe) private var observer: Any?
+    
+    private struct SendableObserver: @unchecked Sendable {
+        let observer: NSObjectProtocol
+    }
+    
+    private let _observer = OSAllocatedUnfairLock<SendableObserver?>(initialState: nil)
 
     init() {
         update()
-        observer = DistributedNotificationCenter.default().addObserver(
+        let obs = DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
             object: nil,
             queue: .main
@@ -25,10 +31,14 @@ final class LanguageModel: ObservableObject {
                 self.info("Language: \(self.current)")
             }
         }
+        if let obs = obs as? NSObjectProtocol {
+            _observer.withLock { $0 = SendableObserver(observer: obs) }
+        }
     }
 
     deinit {
-        if let observer {
+        let boxedObs = _observer.withLock { $0 }
+        if let observer = boxedObs?.observer {
             DistributedNotificationCenter.default().removeObserver(observer)
         }
     }

@@ -603,7 +603,9 @@ private class NoteInputTarget: NSObject, NSTextFieldDelegate {
     @MainActor
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-            submit(control as! NSTextField)
+            if let textField = control as? NSTextField {
+                submit(textField)
+            }
             return true
         }
         return false

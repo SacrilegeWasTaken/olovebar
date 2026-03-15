@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
+import os
 
 protocol WindowMarker: NSWindow {}
 
@@ -54,7 +55,7 @@ final class NotchWindow: NSWindow, WindowMarker {
     private var expandedFrame: NSRect?
     private var expandedTemplateFrame: NSRect?
     private var collapsedTemplateFrame: NSRect?
-    private nonisolated(unsafe) var isAnimating = false
+    private let _isAnimating = OSAllocatedUnfairLock(initialState: false)
     private var collapseTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
@@ -134,14 +135,14 @@ final class NotchWindow: NSWindow, WindowMarker {
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
         collapseTimer?.invalidate()
-        guard !state.isExpanded, !isAnimating, let expanded = expandedFrame else { return }
+        guard !state.isExpanded, !_isAnimating.withLock({ $0 }), let expanded = expandedFrame else { return }
         state.isExpanded = true
         animateFrame(to: expanded)
     }
     
     override func mouseExited(with event: NSEvent) {
         super.mouseExited(with: event)
-        guard state.isExpanded, !isAnimating else { return }
+        guard state.isExpanded, !_isAnimating.withLock({ $0 }) else { return }
         
         collapseTimer?.invalidate()
         collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
@@ -157,13 +158,13 @@ final class NotchWindow: NSWindow, WindowMarker {
     
     private func animateFrame(to newFrame: NSRect) {
         state.isAnimating = true 
-        isAnimating = true
+        _isAnimating.withLock { $0 = true }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             self.animator().setFrame(newFrame, display: false)
         }, completionHandler: {
-            self.isAnimating = false
+            self._isAnimating.withLock { $0 = false }
             Task { @MainActor in
                 self.state.isAnimating = false
                 self.checkMousePosition()

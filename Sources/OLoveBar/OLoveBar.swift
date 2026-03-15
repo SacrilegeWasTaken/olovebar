@@ -121,8 +121,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var frontWindow: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &frontWindow)
         guard result == .success, let window = frontWindow else { return false }
-        // AXUIElement is a CF type; bridge and use after success.
-        let axWindow = (window as AnyObject) as! AXUIElement
+        // AXUIElement is a CF type; bridge always succeeds when non-nil.
+        let axWindow = window as! AXUIElement
 
         var fullscreenValue: AnyObject?
         let fullscreenResult = AXUIElementCopyAttributeValue(axWindow, "AXFullScreen" as CFString, &fullscreenValue)
@@ -136,12 +136,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupSignalHandlers() {
         signal(SIGINT) { _ in
             print("\nReceived SIGINT, exiting...")
-            NSApplication.shared.terminate(nil)
+            DispatchQueue.main.async {
+                NSApplication.shared.terminate(nil)
+            }
         }
         
         signal(SIGTERM) { _ in
             print("\nReceived SIGTERM, exiting...")
-            NSApplication.shared.terminate(nil)
+            DispatchQueue.main.async {
+                NSApplication.shared.terminate(nil)
+            }
         }
     }
 }

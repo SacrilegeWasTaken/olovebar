@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import MacroAPI
 import AppKit
+import os
 
 struct WorkspaceInfo: Hashable, Identifiable {
     let id: String
@@ -31,7 +32,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     @Published var focused: String?
 
     nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
-    nonisolated(unsafe) private var serverSocket: Int32 = -1
+    private let _serverSocket = OSAllocatedUnfairLock(initialState: Int32(-1))
     private let cacheQueue = DispatchQueue(label: "AerospaceModel.iconCache")
     private let updateQueue = DispatchQueue(label: "AerospaceModel.update", qos: .userInitiated)
     private var isUpdating: Bool = false
@@ -70,8 +71,9 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     private func startHTTPServer() {
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self else { return }
-            self.serverSocket = socket(AF_INET, SOCK_STREAM, 0)
-            print("Socket created: \(self.serverSocket)")
+            self._serverSocket.withLock { $0 = socket(AF_INET, SOCK_STREAM, 0) }
+            let serverSocket = self._serverSocket.withLock { $0 }
+            print("Socket created: \(serverSocket)")
             
             var addr = sockaddr_in()
             addr.sin_family = sa_family_t(AF_INET)
@@ -80,21 +82,21 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             addr.sin_addr.s_addr = inet_addr("127.0.0.1")
             
             var yes: Int32 = 1
-            setsockopt(self.serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+            setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
             
             let bindResult = withUnsafePointer(to: &addr) {
                 $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                    bind(self.serverSocket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                    bind(serverSocket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
                 }
             }
             self.info("Bind result: \(bindResult)")
             
-            let listenResult = listen(self.serverSocket, 5)
+            let listenResult = listen(serverSocket, 5)
             self.info("Listen result: \(listenResult)")
             self.info("HTTP server started on localhost:\(portNumber)")
             
             while true {
-                let client = accept(self.serverSocket, nil, nil)
+                let client = accept(serverSocket, nil, nil)
                 if client < 0 {
                     self.info("Accept failed: \(client)")
                     continue
@@ -236,8 +238,9 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
     }
 
     deinit {
-        if serverSocket >= 0 {
-            close(serverSocket)
+        let sock = _serverSocket.withLock { $0 }
+        if sock >= 0 {
+            close(sock)
         }
     }
 }

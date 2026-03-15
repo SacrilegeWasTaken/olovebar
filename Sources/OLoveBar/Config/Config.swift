@@ -4,7 +4,7 @@ import MacroAPI
 
 @LogFunctions(.Config)
 public final class Config: ObservableObject {
-    fileprivate static nonisolated(unsafe) weak var currentInstance: Config?
+    @MainActor public static let shared = Config()
 
     private var path: String
     private var data: TOMLTable?
@@ -47,7 +47,6 @@ public final class Config: ObservableObject {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let configPath = home.appendingPathComponent(".config/olovebar/olovebar.toml").path
         self.path = configPath
-        Self.currentInstance = self
         loadSync()
     }
 
