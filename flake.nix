@@ -45,7 +45,7 @@
       };
 
       olovebar_0_4_0 = mkOlovebar {
-        version = "0.3.6";
+        version = "0.4.0";
         sha256  = "sha256-hrHzx/ZZKku7WNIBFjCc4oH8HcpjQBCPb6p3eVBS9fU=";
       };
     };
