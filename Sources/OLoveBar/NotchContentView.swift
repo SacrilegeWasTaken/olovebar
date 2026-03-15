@@ -20,10 +20,14 @@ struct NotchContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: Globals.notchHeight)
                 .background(.black)
+                .onTapGesture {
+                    NotificationCenter.default.post(name: NSNotification.Name("NotchControlCenterShouldCollapse"), object: nil)
+                }
                 
                 HStack(spacing: 4) {
-                    if state.isExpanded { // Avoiding layout hallucinations 
-
+                    if state.isExpanded {
+                        NotchControlCenterView()
+                            .padding(.vertical, 8)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -38,6 +42,9 @@ struct NotchContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: config.widgetHeight)
                 .background(.black)
+                .onTapGesture {
+                    NotificationCenter.default.post(name: NSNotification.Name("NotchControlCenterShouldCollapse"), object: nil)
+                }
                 .overlay(alignment: .center) {
                     MenuWidgetView(config: config)
                         .fixedSize(horizontal: true, vertical: false)
@@ -52,6 +59,9 @@ struct NotchContentView: View {
                 }
             }
             .background(.black)
+            .onTapGesture {
+                NotificationCenter.default.post(name: NSNotification.Name("NotchControlCenterShouldCollapse"), object: nil)
+            }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .opacity(state.isExpanded ? 1 : 0)
             .animation(.easeInOut(duration: 0.3), value: state.isExpanded)

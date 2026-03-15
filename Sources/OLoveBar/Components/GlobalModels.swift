@@ -12,6 +12,8 @@ class GlobalModels {
     lazy var dateTimeModel = DateTimeModel()
     lazy var playerModel = PlayerModel()
     lazy var notesModel = NotesModel()
+    lazy var displayBrightnessModel = DisplayBrightnessModel()
+    lazy var keyboardBrightnessModel = KeyboardBrightnessModel()
     
     private init() {}
 }
