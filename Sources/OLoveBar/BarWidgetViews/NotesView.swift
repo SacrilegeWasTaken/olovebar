@@ -212,6 +212,7 @@ private class DatePickerButton: NSButton {
     let model: NotesModel
     let isToday: Bool
     private var cancellable: AnyCancellable?
+    private let dotLayer = CALayer()
     
     @MainActor
     init(frame: NSRect, date: Date, dayText: String, isToday: Bool, model: NotesModel) {
@@ -226,12 +227,18 @@ private class DatePickerButton: NSButton {
         self.layer?.cornerRadius = 8
         self.font = .systemFont(ofSize: 13)
         
+        dotLayer.isHidden = true
+        self.layer?.addSublayer(dotLayer)
+        
         self.target = self
         self.action = #selector(dateSelected)
         
         updateAppearance()
         
-        self.cancellable = model.$selectedDate.sink { [weak self] _ in
+        let notesPub = model.$notes.map { _ in () }
+        let datePub = model.$selectedDate.map { _ in () }
+        
+        self.cancellable = Publishers.Merge(notesPub, datePub).sink { [weak self] _ in
             Task { @MainActor in
                 self?.updateAppearance()
             }
@@ -240,6 +247,13 @@ private class DatePickerButton: NSButton {
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layout() {
+        super.layout()
+        let dotSize: CGFloat = 4
+        dotLayer.frame = CGRect(x: bounds.midX - dotSize / 2, y: bounds.maxY - dotSize - 3, width: dotSize, height: dotSize)
+        dotLayer.cornerRadius = dotSize / 2
     }
     
     @MainActor
@@ -259,6 +273,14 @@ private class DatePickerButton: NSButton {
             self.layer?.backgroundColor = NSColor.clear.cgColor
             self.contentTintColor = .labelColor
             self.font = .systemFont(ofSize: 13)
+        }
+        
+        let status = model.notesStatus(for: date)
+        if status.hasNotes {
+            dotLayer.isHidden = false
+            dotLayer.backgroundColor = status.allCompleted ? NSColor.systemGreen.cgColor : NSColor.systemGray.cgColor
+        } else {
+            dotLayer.isHidden = true
         }
     }
     
@@ -587,6 +609,10 @@ private class NotesMenuDelegateTarget: NSObject, NSMenuDelegate {
 
     init(model: NotesModel) {
         self.model = model
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        model.selectDate(Date())
     }
 
     func menuDidClose(_ menu: NSMenu) {

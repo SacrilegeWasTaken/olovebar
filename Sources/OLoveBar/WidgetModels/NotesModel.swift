@@ -123,6 +123,15 @@ final class NotesModel: ObservableObject {
         notes[dateString] ?? []
     }
     
+    func notesStatus(for date: Date) -> (hasNotes: Bool, allCompleted: Bool) {
+        let key = dateFormatter.string(from: date)
+        guard let dayNotes = notes[key], !dayNotes.isEmpty else {
+            return (false, false)
+        }
+        let allCompleted = dayNotes.allSatisfy { $0.completed }
+        return (true, allCompleted)
+    }
+    
     func addNote(_ title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
