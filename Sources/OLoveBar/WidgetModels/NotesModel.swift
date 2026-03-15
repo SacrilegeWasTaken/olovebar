@@ -131,7 +131,7 @@ final class NotesModel: ObservableObject {
         var dateNotes = notes[dateString] ?? []
         dateNotes.append(note)
         notes[dateString] = dateNotes
-        save()
+        flushSave()
     }
     
     func toggleNote(id: UUID) {
@@ -140,10 +140,12 @@ final class NotesModel: ObservableObject {
         
         dateNotes[index].completed.toggle()
         notes[dateString] = dateNotes
-        save()
+        flushSave()
     }
     
-    func updateNoteBody(id: UUID, body: String) {
+    private var saveTimer: Timer?
+    
+    func updateNoteBody(id: UUID, body: String, debounceSave: Bool = false) {
         guard var dateNotes = notes[dateString],
               let index = dateNotes.firstIndex(where: { $0.id == id }) else { return }
         
@@ -153,6 +155,25 @@ final class NotesModel: ObservableObject {
         
         dateNotes[index].body = body
         notes[dateString] = dateNotes
+        
+        if debounceSave {
+            scheduleSave()
+        } else {
+            flushSave()
+        }
+    }
+    
+    private func scheduleSave() {
+        saveTimer?.invalidate()
+        let t = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.flushSave() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        saveTimer = t
+    }
+    
+    func flushSave() {
+        saveTimer?.invalidate()
         save()
     }
     
@@ -166,7 +187,7 @@ final class NotesModel: ObservableObject {
         } else {
             notes[dateString] = dateNotes
         }
-        save()
+        flushSave()
     }
     
     func save() {

@@ -58,6 +58,10 @@ final class NotesMenuView {
         let menu = NSMenu()
         menu.autoenablesItems = false
         
+        let delegate = NotesMenuDelegateTarget(model: model)
+        menu.delegate = delegate
+        objc_setAssociatedObject(menu, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
+        
         let titleItem = NSMenuItem()
         titleItem.view = createTitleView(text: "Notes")
         menu.addItem(titleItem)
@@ -269,6 +273,7 @@ private class NotesListContainer: NSView {
     private var cancellables = Set<AnyCancellable>()
     private let stackView: NSStackView
     private var expandedNotes = Set<UUID>()
+    private var renderedNotes: [Note] = []
     
     @MainActor
     init(model: NotesModel) {
@@ -302,7 +307,21 @@ private class NotesListContainer: NSView {
         model.$notes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.rebuildNotes()
+                guard let self = self else { return }
+                let newNotes = self.model.notesForSelectedDate()
+                
+                let isStructurallyDifferent: Bool
+                if self.renderedNotes.count == newNotes.count {
+                    isStructurallyDifferent = zip(self.renderedNotes, newNotes).contains { old, new in
+                        old.id != new.id || old.title != new.title || old.completed != new.completed
+                    }
+                } else {
+                    isStructurallyDifferent = true
+                }
+                
+                if isStructurallyDifferent {
+                    self.rebuildNotes()
+                }
             }
             .store(in: &cancellables)
         
@@ -321,6 +340,7 @@ private class NotesListContainer: NSView {
     @MainActor
     private func rebuildNotes() {
         let notes = model.notesForSelectedDate()
+        self.renderedNotes = notes
         
         stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
@@ -434,6 +454,8 @@ private class NotesListContainer: NSView {
             scrollView.documentView = bodyTextView
             
             let bodyTarget = NoteBodyTarget(noteId: note.id, model: model, textView: bodyTextView)
+            bodyTextView.delegate = bodyTarget
+            
             NotificationCenter.default.addObserver(
                 bodyTarget,
                 selector: #selector(NoteBodyTarget.textDidEndEditing(_:)),
@@ -557,11 +579,22 @@ private class NoteExpandTarget: NSObject {
     }
 }
 
-private class NoteBodyTarget: NSObject {
+private class NotesMenuDelegateTarget: NSObject, NSMenuDelegate {
+    let model: NotesModel
+
+    init(model: NotesModel) {
+        self.model = model
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        model.flushSave()
+    }
+}
+
+private class NoteBodyTarget: NSObject, NSTextViewDelegate, @unchecked Sendable {
     let noteId: UUID
     let model: NotesModel
     weak var textView: NSTextView?
-    private var saveTimer: Timer?
     
     init(noteId: UUID, model: NotesModel, textView: NSTextView) {
         self.noteId = noteId
@@ -571,13 +604,15 @@ private class NoteBodyTarget: NSObject {
     
     @MainActor
     @objc func textDidChange(_ notification: Notification) {
+        if let string = textView?.string {
+            model.updateNoteBody(id: noteId, body: string, debounceSave: true)
+        }
     }
     
     @MainActor
     @objc func textDidEndEditing(_ notification: Notification) {
-        saveTimer?.invalidate()
-        if let textView = notification.object as? NSTextView {
-            model.updateNoteBody(id: noteId, body: textView.string)
+        if let string = textView?.string {
+            model.updateNoteBody(id: noteId, body: string, debounceSave: false)
         }
     }
 }
