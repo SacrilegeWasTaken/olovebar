@@ -406,6 +406,9 @@ private class NotesListContainer: NSView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.alignment = .left
         
+        let titleClickGesture = NSClickGestureRecognizer(target: expandTarget, action: #selector(NoteExpandTarget.toggle(_:)))
+        titleLabel.addGestureRecognizer(titleClickGesture)
+        
         if note.completed {
             titleLabel.textColor = .tertiaryLabelColor
             let attributed = NSMutableAttributedString(string: note.title)
@@ -574,7 +577,7 @@ private class NoteExpandTarget: NSObject {
     }
     
     @MainActor
-    @objc func toggle(_ sender: NSButton) {
+    @objc func toggle(_ sender: Any) {
         container?.toggleNoteExpansion(noteId)
     }
 }
