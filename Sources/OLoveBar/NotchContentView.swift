@@ -16,7 +16,7 @@ struct NotchContentView: View {
                 HStack {
                     HStack { // Player
                         if state.isExpanded {
-                            
+                            PlayerWidgetView()
                         }
                     }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
                     HStack {

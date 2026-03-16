@@ -12,6 +12,8 @@ class SilentApp: NSApplication {
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
     static func main() {
+        setbuf(stdout, nil)
+        setbuf(stderr, nil)
         let app = SilentApp.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -24,6 +26,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var notificationPlacementController: NotificationPlacementController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        print("[info]:[AppDelegate] Application did finish launching")
+        _ = GlobalModels.shared.playerModel // Trigger initialization
         setupSignalHandlers()
         requestAccessibilityIfNeeded()
         setupWindows()

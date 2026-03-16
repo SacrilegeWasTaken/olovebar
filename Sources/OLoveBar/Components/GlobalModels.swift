@@ -13,6 +13,7 @@ class GlobalModels {
     lazy var notesModel = NotesModel()
     lazy var displayBrightnessModel = DisplayBrightnessModel()
     lazy var keyboardBrightnessModel = KeyboardBrightnessModel()
+    lazy var playerModel = PlayerModel.shared
     
     private init() {}
 }
