@@ -14,24 +14,32 @@ struct NotchContentView: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                 HStack {
-                    if state.isExpanded { // Avoiding layout hallucinations 
+                    HStack { // Player
+                        if state.isExpanded {
+                            
+                        }
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
+                    HStack {
+                        VStack {
+                            HStack {
+                                if state.isExpanded { // Avoiding layout hallucinations 
 
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: Globals.notchHeight)
-                .background(.black)
-                .onTapGesture {
-                    NotificationCenter.default.post(name: NSNotification.Name("NotchControlCenterShouldCollapse"), object: nil)
-                }
-                
-                HStack(spacing: 4) {
-                    if state.isExpanded {
-                        NotchControlCenterView()
-                            .padding(.vertical, 8)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.black)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: Globals.notchHeight).background(.black)
+                            HStack {
+                                if state.isExpanded {
+                                    NotchControlCenterView()
+                                        .padding(.vertical, 8)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
+                        }
+                    }.frame(maxWidth: .infinity, maxHeight: Globals.notchWidth).background(.black)
+                    HStack { // Other menu controls
+
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).background(.black)
 
                 HStack(spacing: 0) {
                     if state.isExpanded {

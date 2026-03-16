@@ -10,7 +10,6 @@ class GlobalModels {
     lazy var volumeModel = VolumeModel()
     lazy var activeAppModel = ActiveAppModel()
     lazy var dateTimeModel = DateTimeModel()
-    lazy var playerModel = PlayerModel()
     lazy var notesModel = NotesModel()
     lazy var displayBrightnessModel = DisplayBrightnessModel()
     lazy var keyboardBrightnessModel = KeyboardBrightnessModel()
