@@ -104,8 +104,11 @@ public final class PlayerModel: ObservableObject {
 
     private func applyUpdate(_ info: [String: Any]) {
         let newTitle = info["title"] as? String ?? ""
+        let newArtist = info["artist"] as? String ?? ""
+        let trackChanged = newTitle != title || newArtist != artist
+
         self.title = newTitle.isEmpty ? "Not Playing" : newTitle
-        self.artist = info["artist"] as? String ?? ""
+        self.artist = newArtist
         self.album = info["album"] as? String ?? ""
         self.duration = info["duration"] as? Double ?? 0
         self.elapsedTime = info["elapsedTime"] as? Double ?? 0
@@ -114,7 +117,7 @@ public final class PlayerModel: ObservableObject {
         if let b64 = info["artworkBase64"] as? String,
            let artData = Data(base64Encoded: b64) {
             self.artwork = NSImage(data: artData)
-        } else {
+        } else if trackChanged {
             self.artwork = nil
         }
     }

@@ -123,7 +123,12 @@ public enum MediaRemote {
         ) { _ in fetchAndOutput() }
     }
 
+    let parentPID = getppid()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { fetchAndOutput() }
+
+    Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+        if getppid() != parentPID { exit(0) }
+    }
 
     signal(SIGTERM, SIG_IGN)
     let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
