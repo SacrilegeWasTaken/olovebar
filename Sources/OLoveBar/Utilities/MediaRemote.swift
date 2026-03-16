@@ -25,6 +25,9 @@ public enum MediaRemote {
     private typealias MRMediaRemoteSendCommandFn = @convention(c) (Int32, CFDictionary?) -> Bool
     private static let _sendCommand: MRMediaRemoteSendCommandFn? = sym("MRMediaRemoteSendCommand")
 
+    private typealias MRMediaRemoteSetElapsedTimeFn = @convention(c) (Double) -> Void
+    private static let _setElapsedTime: MRMediaRemoteSetElapsedTimeFn? = sym("MRMediaRemoteSetElapsedTime")
+
     public enum Command: Int32 {
         case play = 0
         case pause = 1
@@ -38,6 +41,11 @@ public enum MediaRemote {
     public static func sendCommand(_ command: Command) -> Bool {
         guard let fn = _sendCommand else { return false }
         return fn(command.rawValue, nil)
+    }
+
+    /// Seek to position in seconds (elapsed time).
+    public static func setElapsedTime(_ seconds: Double) {
+        _setElapsedTime?(seconds)
     }
 
     // MARK: - Helper Script for Reading Now-Playing Info

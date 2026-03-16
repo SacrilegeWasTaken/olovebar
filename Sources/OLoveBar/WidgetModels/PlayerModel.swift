@@ -142,4 +142,12 @@ public final class PlayerModel: ObservableObject {
     public func previous() {
         MediaRemote.sendCommand(.previousTrack)
     }
+
+    /// Seek to position; fraction in 0...1 (0 = start, 1 = end).
+    public func seek(to fraction: Double) {
+        let clamped = max(0, min(1, fraction))
+        let seconds = duration * clamped
+        MediaRemote.setElapsedTime(seconds)
+        elapsedTime = seconds
+    }
 }

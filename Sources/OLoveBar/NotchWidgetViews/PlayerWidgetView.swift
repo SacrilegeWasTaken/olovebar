@@ -85,6 +85,61 @@ private struct MarqueeText: View {
     }
 }
 
+// MARK: - Seek Slider
+
+private struct SeekSlider: View {
+    let progress: Double
+    let duration: Double
+    let onSeek: (Double) -> Void
+
+    @State private var isDragging = false
+    @State private var dragProgress: Double?
+
+    private var displayProgress: Double {
+        if isDragging, let p = dragProgress { return p }
+        return progress
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white.opacity(0.2))
+                    .frame(height: 4)
+
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white)
+                    .frame(width: max(0, w * displayProgress), height: 4)
+            }
+            .frame(height: 4)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture { location in
+                guard w > 0 else { return }
+                let fraction = max(0, min(1, location.x / w))
+                onSeek(fraction)
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard w > 0 else { return }
+                        isDragging = true
+                        let fraction = max(0, min(1, value.location.x / w))
+                        dragProgress = fraction
+                    }
+                    .onEnded { value in
+                        guard w > 0 else { return }
+                        let fraction = max(0, min(1, value.location.x / w))
+                        onSeek(fraction)
+                        isDragging = false
+                        dragProgress = nil
+                    }
+            )
+        }
+    }
+}
+
 // MARK: - Player Widget
 
 struct PlayerWidgetView: View {
@@ -138,18 +193,10 @@ struct PlayerWidgetView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(spacing: 6) {
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white.opacity(0.2))
-                                .frame(height: 4)
-
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.white)
-                                .frame(width: geo.size.width * progress, height: 4)
-                        }
+                    SeekSlider(progress: progress, duration: model.duration) { fraction in
+                        model.seek(to: fraction)
                     }
-                    .frame(height: 4)
+                    .frame(height: 8)
 
                     HStack(spacing: 20) {
                         Button(action: { model.previous() }) {
