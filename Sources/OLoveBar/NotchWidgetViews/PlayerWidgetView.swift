@@ -8,81 +8,74 @@ private struct MarqueeText: View {
     let fontSize: CGFloat
     let color: Color
     var speed: Double = 30
+    var gap: CGFloat = 40
 
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
     @State private var animating = false
 
-    private var overflow: CGFloat {
-        max(0, textWidth - containerWidth)
-    }
+    private var needsScroll: Bool { textWidth > containerWidth }
+    private var scrollDistance: CGFloat { textWidth + gap }
 
     var body: some View {
         GeometryReader { geo in
-            Text(text)
-                .font(font)
-                .foregroundColor(color)
-                .lineLimit(1)
-                .fixedSize()
-                .offset(x: offset)
-                .onAppear { containerWidth = geo.size.width }
-                .onChange(of: geo.size.width) { _, w in containerWidth = w }
-                .background {
-                    Text(text)
-                        .font(font)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .hidden()
-                        .background(GeometryReader { g in
-                            Color.clear.onAppear { textWidth = g.size.width }
-                                .onChange(of: text) { _, _ in
-                                    textWidth = g.size.width
-                                }
-                        })
+            HStack(spacing: 0) {
+                label
+                if needsScroll {
+                    Spacer().frame(width: gap)
+                    label
                 }
-                .onChange(of: text) { _, _ in resetAndStart() }
-                .onChange(of: overflow) { _, _ in resetAndStart() }
-                .onAppear { startCycle() }
+            }
+            .offset(x: offset)
+            .onAppear { containerWidth = geo.size.width }
+            .onChange(of: geo.size.width) { _, w in containerWidth = w }
+            .onChange(of: text) { _, _ in resetAndStart() }
+            .onChange(of: needsScroll) { _, _ in resetAndStart() }
+            .onAppear { startCycle() }
         }
         .frame(height: lineHeight)
         .clipped()
     }
 
+    private var label: some View {
+        Text(text)
+            .font(font)
+            .foregroundColor(color)
+            .lineLimit(1)
+            .fixedSize()
+            .background(GeometryReader { g in
+                Color.clear
+                    .onAppear { textWidth = g.size.width }
+                    .onChange(of: text) { _, _ in textWidth = g.size.width }
+            })
+    }
+
     private func resetAndStart() {
         animating = false
         offset = 0
-        startCycle()
+        DispatchQueue.main.async { startCycle() }
     }
 
     private func startCycle() {
-        guard overflow > 0, !animating else { return }
+        guard needsScroll, !animating else { return }
         animating = true
-        scrollForward()
+        tick()
     }
 
-    private func scrollForward() {
-        guard overflow > 0 else { animating = false; return }
-        let duration = overflow / speed
+    private func tick() {
+        guard needsScroll, animating else { animating = false; return }
+        let duration = scrollDistance / speed
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            guard self.animating else { return }
             withAnimation(.linear(duration: duration)) {
-                offset = -overflow
+                self.offset = -self.scrollDistance
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 1.5) {
-                scrollBack()
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                guard self.animating else { return }
+                self.offset = 0
+                self.tick()
             }
-        }
-    }
-
-    private func scrollBack() {
-        guard animating else { return }
-        let duration = overflow / speed
-        withAnimation(.linear(duration: duration)) {
-            offset = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-            guard animating else { return }
-            scrollForward()
         }
     }
 
