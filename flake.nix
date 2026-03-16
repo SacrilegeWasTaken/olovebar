@@ -26,7 +26,7 @@
     };
 
     latestVersion = lib.strings.trim (builtins.readFile ./VERSION);
-    latestHash    = "sha256-hrHzx/ZZKku7WNIBFjCc4oH8HcpjQBCPb6p3eVBS9fU=";
+    latestHash    = "sha256-b0uS3+R+OPFloILiiduv3eYYdDpX3XaoPBmKLJo/8pc=";
   in {
     packages.${system} = {
       olovebar = mkOlovebar {
@@ -47,6 +47,11 @@
       olovebar_0_4_0 = mkOlovebar {
         version = "0.4.0";
         sha256  = "sha256-hrHzx/ZZKku7WNIBFjCc4oH8HcpjQBCPb6p3eVBS9fU=";
+      };
+
+      olovebar_0_4_1 = mkOlovebar {
+        version = "0.4.1";
+        sha256  = "sha256-b0uS3+R+OPFloILiiduv3eYYdDpX3XaoPBmKLJo/8pc=";
       };
     };
 
