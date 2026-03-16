@@ -21,7 +21,7 @@ final class BatteryModel: ObservableObject {
     nonisolated(unsafe) private var powerSourceLoop: CFRunLoopSource?
     nonisolated(unsafe) private var powerModeObserver: NSObjectProtocol?
 
-    init() {
+    private init() {
         update()
         setupPowerNotifications()
         setupLowPowerModeObserver()
