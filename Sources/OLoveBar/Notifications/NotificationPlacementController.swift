@@ -26,8 +26,8 @@ final class NotificationPlacementController {
     private let immediateResyncPassCount: Int = 10
     private let immediateResyncStep: TimeInterval = 0.012
     /// Bounds for recursive AX scanning on unknown windows.
-    private let subroleSearchMaxDepth: Int = 28
-    private let subroleSearchChildrenLimit: Int = 120
+    private let subroleSearchMaxDepth: Int = 36
+    private let subroleSearchChildrenLimit: Int = 180
     private var cancellables = Set<AnyCancellable>()
     
     private struct SendableTimer: @unchecked Sendable {
@@ -36,8 +36,8 @@ final class NotificationPlacementController {
     
     private let _timer = OSAllocatedUnfairLock<SendableTimer?>(initialState: nil)
     private let _axObserver = OSAllocatedUnfairLock<AXObserver?>(initialState: nil)
-    /// Baseline banner origin used in "offset" mode to avoid cumulative drift.
-    private var offsetBaselineOrigin: CGPoint?
+    /// Baseline banner origin per AX window to avoid drift over long-lived notifications.
+    private var offsetBaselineOrigins = [CFHashCode: CGPoint]()
     /// De-duplicate diagnostics so AX tree logs stay readable.
     private var loggedWindowSignatures = Set<String>()
     /// Cache only positive AX classification by element hash.
@@ -78,7 +78,7 @@ final class NotificationPlacementController {
         guard config.notificationsEnabled, AXIsProcessTrusted() else {
             stopTimer()
             tearDownObserver()
-            offsetBaselineOrigin = nil
+            offsetBaselineOrigins.removeAll(keepingCapacity: true)
             return
         }
 
@@ -161,7 +161,7 @@ final class NotificationPlacementController {
     private func moveAllNotifications() {
         guard let appElement = notificationCenterAppElement(),
               let windows = copyWindows(from: appElement) else {
-            offsetBaselineOrigin = nil
+            offsetBaselineOrigins.removeAll(keepingCapacity: true)
             bannerClassificationCache.removeAll(keepingCapacity: true)
             return
         }
@@ -169,6 +169,7 @@ final class NotificationPlacementController {
         // Drop stale cache entries for closed windows.
         let liveHashes = Set(windows.map { CFHash($0) })
         bannerClassificationCache = bannerClassificationCache.filter { liveHashes.contains($0.key) }
+        offsetBaselineOrigins = offsetBaselineOrigins.filter { liveHashes.contains($0.key) }
 
         for window in windows {
             repositionIfNeeded(window: window)
@@ -176,17 +177,18 @@ final class NotificationPlacementController {
     }
 
     private func repositionIfNeeded(window: AXUIElement) {
-        guard isNotificationBanner(window: window) || isNotificationCenterPanel(window: window) else { return }
+        guard isNotificationBanner(window: window) else { return }
 
         guard var frame = copyFrame(of: window) else { return }
         guard screenFor(frame: frame) != nil else { return }
+        let windowHash = CFHash(window)
 
         let targetOrigin: CGPoint
 
-        if offsetBaselineOrigin == nil {
-            offsetBaselineOrigin = frame.origin
+        if offsetBaselineOrigins[windowHash] == nil {
+            offsetBaselineOrigins[windowHash] = frame.origin
         }
-        guard let baseline = offsetBaselineOrigin else { return }
+        guard let baseline = offsetBaselineOrigins[windowHash] else { return }
         targetOrigin = CGPoint(
             x: baseline.x + config.notificationsOffsetX,
             y: baseline.y + config.notificationsOffsetY
@@ -224,53 +226,72 @@ final class NotificationPlacementController {
             return false
         }
 
-        let targetSubroles: Set<String> = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
+        let primarySubroles: Set<String> = [
+            "AXNotificationCenterBanner",
+            "AXNotificationCenterAlert"
+        ]
+        let secondarySubroles: Set<String> = [
+            "AXBanner",
+            "AXAlert",
+            "AXSystemDialog",
+            "AXDialog"
+        ]
 
         if let directSubrole = copyStringAttribute(kAXSubroleAttribute as CFString, from: window),
-           targetSubroles.contains(directSubrole) {
+           primarySubroles.contains(directSubrole) {
+            bannerClassificationCache[elementHash] = true
+            return true
+        }
+        if let directSubrole = copyStringAttribute(kAXSubroleAttribute as CFString, from: window),
+           secondarySubroles.contains(directSubrole),
+           isSecondaryBannerWindowCandidate(window) {
             bannerClassificationCache[elementHash] = true
             return true
         }
 
         var visited = Set<CFHashCode>()
-        let match = findElementWithSubrole(
+        let primaryMatch = findElementWithSubrole(
             root: window,
-            targetSubroles: targetSubroles,
+            targetSubroles: primarySubroles,
             visited: &visited,
             maxDepth: subroleSearchMaxDepth
         )
-        let isBanner = (match != nil)
-        if isBanner {
+        if primaryMatch != nil {
             bannerClassificationCache[elementHash] = true
+            return true
         }
-        if diagnosticsEnabled, match == nil {
+
+        let secondaryMatch = findElementWithSubrole(
+            root: window,
+            targetSubroles: secondarySubroles,
+            visited: &visited,
+            maxDepth: subroleSearchMaxDepth
+        )
+        let isSecondaryBanner = (secondaryMatch != nil) && isSecondaryBannerWindowCandidate(window)
+        if isSecondaryBanner {
+            bannerClassificationCache[elementHash] = true
+            return true
+        }
+
+        if diagnosticsEnabled {
             logWindowDiagnosticsIfNeeded(window: window, trigger: "not-matched")
         }
-        return isBanner
+        return false
     }
 
-    /// Fallback for empty Notification Center state: there may be no banner subroles,
-    /// but the panel window itself should still follow configured offsets.
-    private func isNotificationCenterPanel(window: AXUIElement) -> Bool {
-        if let identifier = copyStringAttribute(kAXIdentifierAttribute as CFString, from: window),
-           identifier.hasPrefix("widget") {
-            return false
-        }
-
+    /// Secondary subroles are only accepted for compact top-right windows,
+    /// so we don't accidentally control other Notification Center UI panels.
+    private func isSecondaryBannerWindowCandidate(_ window: AXUIElement) -> Bool {
         let role = copyStringAttribute(kAXRoleAttribute as CFString, from: window) ?? ""
         guard role == kAXWindowRole as String else { return false }
+        guard let frame = copyFrame(of: window),
+              let screen = screenFor(frame: frame) else { return false }
 
-        guard let frame = copyFrame(of: window) else { return false }
-
-        // Conservative heuristic:
-        // - non-trivial size (exclude tiny utility windows),
-        // - appears in top half (Notification Center panel lives there),
-        // - anchored to right side by default.
-        guard frame.width >= 260, frame.height >= 160 else { return false }
-        guard let screen = screenFor(frame: frame) else { return false }
-        let nearTopHalf = frame.midY > (screen.frame.midY - 20)
-        let nearRightSide = frame.maxX > (screen.frame.maxX - screen.frame.width * 0.45)
-        return nearTopHalf && nearRightSide
+        let compactWidth = frame.width <= 520
+        let compactHeight = frame.height <= 260
+        let nearRightEdge = frame.maxX >= (screen.frame.maxX - screen.frame.width * 0.35)
+        let nearTopHalf = frame.midY >= (screen.frame.midY - 10)
+        return compactWidth && compactHeight && nearRightEdge && nearTopHalf
     }
 
     private func copyFrame(of element: AXUIElement) -> CGRect? {
