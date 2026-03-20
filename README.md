@@ -43,6 +43,8 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] Migrate from `SwiftUI` popover to `NSMenu` everywhere
 - [x] Notch Player Widget
 - [x] Deep Aerospace integration with Aerospace to increase UI reaction speed.
+- [x] System Notification offset controls.
+- [x] Keyboard brightness controls in Notch
 
 ### Planned
 
