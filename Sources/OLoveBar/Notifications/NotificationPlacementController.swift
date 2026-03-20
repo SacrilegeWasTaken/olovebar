@@ -11,6 +11,14 @@ final class NotificationPlacementController {
     static let shared = NotificationPlacementController(config: Config.shared)
 
     private let config: Config
+    private let logger = Logger(subsystem: "OLoveBar", category: "NotificationPlacement")
+    private let diagnosticsLogURL: URL = {
+        let logsDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/OLoveBar", isDirectory: true)
+        return logsDir.appendingPathComponent("notification-ax.log", isDirectory: false)
+    }()
+    private let diagnosticsMaxFileSizeBytes: UInt64 = 2 * 1024 * 1024
+    private let diagnosticsDateFormatter = ISO8601DateFormatter()
     private var cancellables = Set<AnyCancellable>()
     
     private struct SendableTimer: @unchecked Sendable {
@@ -21,6 +29,8 @@ final class NotificationPlacementController {
     private let _axObserver = OSAllocatedUnfairLock<AXObserver?>(initialState: nil)
     /// Baseline banner origin used in "offset" mode to avoid cumulative drift.
     private var offsetBaselineOrigin: CGPoint?
+    /// De-duplicate diagnostics so AX tree logs stay readable.
+    private var loggedWindowSignatures = Set<String>()
 
     init(config: Config) {
         self.config = config
@@ -175,12 +185,22 @@ final class NotificationPlacementController {
 
     // Called immediately when a new notification window is created via AXObserver.
     func handleWindowCreated(element: AXUIElement) {
+        logWindowDiagnosticsIfNeeded(window: element, trigger: "created")
         repositionIfNeeded(window: element)
     }
 
     private func isNotificationBanner(window: AXUIElement) -> Bool {
-        let targetSubroles = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
-        return findElementWithSubrole(root: window, targetSubroles: targetSubroles) != nil
+        let targetSubroles: Set<String> = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
+        var visited = Set<CFHashCode>()
+        let match = findElementWithSubrole(
+            root: window,
+            targetSubroles: targetSubroles,
+            visited: &visited
+        )
+        if match == nil {
+            logWindowDiagnosticsIfNeeded(window: window, trigger: "not-matched")
+        }
+        return match != nil
     }
 
     private func copyFrame(of element: AXUIElement) -> CGRect? {
@@ -218,7 +238,19 @@ final class NotificationPlacementController {
     }
 
     // Adapted from PingPlace: recursively search for elements with specific AXSubrole.
-    private func findElementWithSubrole(root: AXUIElement, targetSubroles: [String]) -> AXUIElement? {
+    // AX trees can contain cycles; guard with visited + depth limit.
+    private func findElementWithSubrole(
+        root: AXUIElement,
+        targetSubroles: Set<String>,
+        visited: inout Set<CFHashCode>,
+        depth: Int = 0,
+        maxDepth: Int = 40
+    ) -> AXUIElement? {
+        guard depth <= maxDepth else { return nil }
+
+        let elementHash = CFHash(root)
+        guard visited.insert(elementHash).inserted else { return nil }
+
         var subroleRef: AnyObject?
         if AXUIElementCopyAttributeValue(root, kAXSubroleAttribute as CFString, &subroleRef) == .success {
             if let subrole = subroleRef as? String, targetSubroles.contains(subrole) {
@@ -232,13 +264,100 @@ final class NotificationPlacementController {
             return nil
         }
 
-        for child in children {
-            if let found = findElementWithSubrole(root: child, targetSubroles: targetSubroles) {
+        for child in children.prefix(200) {
+            if let found = findElementWithSubrole(
+                root: child,
+                targetSubroles: targetSubroles,
+                visited: &visited,
+                depth: depth + 1,
+                maxDepth: maxDepth
+            ) {
                 return found
             }
         }
 
         return nil
+    }
+
+    private func copyStringAttribute(_ attribute: CFString, from element: AXUIElement) -> String? {
+        var valueRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, attribute, &valueRef) == .success else {
+            return nil
+        }
+        return valueRef as? String
+    }
+
+    private func roleAndSubrole(for element: AXUIElement) -> (role: String, subrole: String) {
+        let role = copyStringAttribute(kAXRoleAttribute as CFString, from: element) ?? "<nil>"
+        let subrole = copyStringAttribute(kAXSubroleAttribute as CFString, from: element) ?? "<nil>"
+        return (role, subrole)
+    }
+
+    private func logWindowDiagnosticsIfNeeded(window: AXUIElement, trigger: String) {
+        let top = roleAndSubrole(for: window)
+        let signature = "\(trigger)|\(top.role)|\(top.subrole)"
+        guard loggedWindowSignatures.insert(signature).inserted else { return }
+
+        emitDiagnosticsLine("AX diagnostics [\(trigger)] root role=\(top.role) subrole=\(top.subrole)")
+
+        var childrenRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(window, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+              let children = childrenRef as? [AXUIElement] else {
+            emitDiagnosticsLine("AX diagnostics: root has no readable children")
+            return
+        }
+
+        if children.isEmpty {
+            emitDiagnosticsLine("AX diagnostics: root children list is empty")
+            return
+        }
+
+        for (idx, child) in children.prefix(12).enumerated() {
+            let info = roleAndSubrole(for: child)
+            emitDiagnosticsLine("AX child[\(idx)] role=\(info.role) subrole=\(info.subrole)")
+
+            var grandChildrenRef: AnyObject?
+            guard AXUIElementCopyAttributeValue(child, kAXChildrenAttribute as CFString, &grandChildrenRef) == .success,
+                  let grandChildren = grandChildrenRef as? [AXUIElement] else {
+                continue
+            }
+
+            for (gidx, grandChild) in grandChildren.prefix(8).enumerated() {
+                let gInfo = roleAndSubrole(for: grandChild)
+                emitDiagnosticsLine("AX child[\(idx)] grandChild[\(gidx)] role=\(gInfo.role) subrole=\(gInfo.subrole)")
+            }
+        }
+    }
+
+    private func emitDiagnosticsLine(_ line: String) {
+        logger.notice("\(line, privacy: .public)")
+        appendDiagnosticsToFile(line)
+    }
+
+    private func appendDiagnosticsToFile(_ line: String) {
+        let timestamp = diagnosticsDateFormatter.string(from: Date())
+        let payload = "[\(timestamp)] \(line)\n"
+        guard let data = payload.data(using: .utf8) else { return }
+
+        do {
+            let logsDir = diagnosticsLogURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
+            if !FileManager.default.fileExists(atPath: diagnosticsLogURL.path) {
+                FileManager.default.createFile(atPath: diagnosticsLogURL.path, contents: nil)
+            }
+            let attrs = try FileManager.default.attributesOfItem(atPath: diagnosticsLogURL.path)
+            let currentFileSize = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
+            if currentFileSize >= diagnosticsMaxFileSizeBytes {
+                try Data().write(to: diagnosticsLogURL, options: .atomic)
+            }
+
+            let handle = try FileHandle(forWritingTo: diagnosticsLogURL)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: data)
+        } catch {
+            logger.error("Failed to append AX diagnostics log file: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
 
