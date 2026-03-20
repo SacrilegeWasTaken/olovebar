@@ -41,10 +41,11 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] Aerospace updates through notifications
 - [x] WiFi widget optional name configuration
 - [x] Migrate from `SwiftUI` popover to `NSMenu` everywhere
+- [x] Notch Player Widget
+- [x] Deep Aerospace integration with Aerospace to increase UI reaction speed.
 
 ### Planned
 
-- [ ] Notch Player Widget
 - [ ] WiFi controls like native menu bar
 - [ ] Battery controls like native menu bar
 - [ ] Aerospace widget color configurations
@@ -57,7 +58,6 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [ ] NetLoad Widget
 - [ ] Widget reordering
 - [ ] Removing/Adding widgets into the bar
-- [ ] Deep Aerospace integration with Aerospace to increase UI reaction speed.
 ---
 
 ## Requirements
