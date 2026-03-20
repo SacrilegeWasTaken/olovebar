@@ -29,15 +29,12 @@ import sys
 from pathlib import Path
 
 
-def read_version(version_file: Path) -> str:
-    if not version_file.exists():
-        print(f"ERROR: VERSION file not found at {version_file}", file=sys.stderr)
-        sys.exit(1)
-    version = version_file.read_text(encoding="utf-8").strip()
+def read_version() -> str:
+    version = os.getenv("VERSION")
     if not version:
-        print("ERROR: VERSION file is empty", file=sys.stderr)
+        print("ERROR: VERSION environment variable is not set.", file=sys.stderr)
         sys.exit(1)
-    return version
+    return version.strip()
 
 
 def sha256_hex(path: Path) -> str:
@@ -177,13 +174,12 @@ def main() -> None:
         print(f"ERROR: tap-dir {tap_dir} does not exist.", file=sys.stderr)
         sys.exit(1)
 
-    version_file = Path("VERSION")
     dmg_path = Path(".build/OLoveBar.dmg")
 
     owner = os.getenv("CODEBERG_OWNER", "sacrilegewastaken")
     repo = os.getenv("CODEBERG_REPO", "olovebar")
 
-    version = read_version(version_file)
+    version = read_version()
     sha_hex = sha256_hex(dmg_path)
 
     print(f"Version: {version}")
