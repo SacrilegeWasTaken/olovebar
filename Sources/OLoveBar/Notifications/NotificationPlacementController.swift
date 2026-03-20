@@ -176,7 +176,7 @@ final class NotificationPlacementController {
     }
 
     private func repositionIfNeeded(window: AXUIElement) {
-        guard isNotificationBanner(window: window) else { return }
+        guard isNotificationBanner(window: window) || isNotificationCenterPanel(window: window) else { return }
 
         guard var frame = copyFrame(of: window) else { return }
         guard screenFor(frame: frame) != nil else { return }
@@ -247,6 +247,30 @@ final class NotificationPlacementController {
             logWindowDiagnosticsIfNeeded(window: window, trigger: "not-matched")
         }
         return isBanner
+    }
+
+    /// Fallback for empty Notification Center state: there may be no banner subroles,
+    /// but the panel window itself should still follow configured offsets.
+    private func isNotificationCenterPanel(window: AXUIElement) -> Bool {
+        if let identifier = copyStringAttribute(kAXIdentifierAttribute as CFString, from: window),
+           identifier.hasPrefix("widget") {
+            return false
+        }
+
+        let role = copyStringAttribute(kAXRoleAttribute as CFString, from: window) ?? ""
+        guard role == kAXWindowRole as String else { return false }
+
+        guard let frame = copyFrame(of: window) else { return false }
+
+        // Conservative heuristic:
+        // - non-trivial size (exclude tiny utility windows),
+        // - appears in top half (Notification Center panel lives there),
+        // - anchored to right side by default.
+        guard frame.width >= 260, frame.height >= 160 else { return false }
+        guard let screen = screenFor(frame: frame) else { return false }
+        let nearTopHalf = frame.midY > (screen.frame.midY - 20)
+        let nearRightSide = frame.maxX > (screen.frame.maxX - screen.frame.width * 0.45)
+        return nearTopHalf && nearRightSide
     }
 
     private func copyFrame(of element: AXUIElement) -> CGRect? {
