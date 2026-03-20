@@ -12,6 +12,7 @@ final class NotificationPlacementController {
 
     private let config: Config
     private let logger = Logger(subsystem: "OLoveBar", category: "NotificationPlacement")
+    private let diagnosticsEnabled = ProcessInfo.processInfo.environment["OLOVEBAR_AX_DEBUG"] == "1"
     private let diagnosticsLogURL: URL = {
         let logsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/OLoveBar", isDirectory: true)
@@ -19,6 +20,14 @@ final class NotificationPlacementController {
     }()
     private let diagnosticsMaxFileSizeBytes: UInt64 = 2 * 1024 * 1024
     private let diagnosticsDateFormatter = ISO8601DateFormatter()
+    /// Polling interval for keeping notification windows pinned in place.
+    private let repositionPollingInterval: TimeInterval = 0.07
+    /// Extra fast re-sync passes right after a new AX window appears.
+    private let immediateResyncPassCount: Int = 10
+    private let immediateResyncStep: TimeInterval = 0.012
+    /// Bounds for recursive AX scanning on unknown windows.
+    private let subroleSearchMaxDepth: Int = 28
+    private let subroleSearchChildrenLimit: Int = 120
     private var cancellables = Set<AnyCancellable>()
     
     private struct SendableTimer: @unchecked Sendable {
@@ -31,6 +40,11 @@ final class NotificationPlacementController {
     private var offsetBaselineOrigin: CGPoint?
     /// De-duplicate diagnostics so AX tree logs stay readable.
     private var loggedWindowSignatures = Set<String>()
+    /// Cache only positive AX classification by element hash.
+    /// (Avoid caching negatives: some windows become banner-like after initial creation.)
+    private var bannerClassificationCache = [CFHashCode: Bool]()
+    /// Coalesces immediate re-sync bursts when many windows appear at once.
+    private var immediateResyncGeneration: UInt64 = 0
 
     init(config: Config) {
         self.config = config
@@ -75,7 +89,7 @@ final class NotificationPlacementController {
     private func startTimerIfNeeded() {
         guard _timer.withLock({ $0 }) == nil else { return }
 
-        let newTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: repositionPollingInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.tick()
             }
@@ -148,8 +162,13 @@ final class NotificationPlacementController {
         guard let appElement = notificationCenterAppElement(),
               let windows = copyWindows(from: appElement) else {
             offsetBaselineOrigin = nil
+            bannerClassificationCache.removeAll(keepingCapacity: true)
             return
         }
+
+        // Drop stale cache entries for closed windows.
+        let liveHashes = Set(windows.map { CFHash($0) })
+        bannerClassificationCache = bannerClassificationCache.filter { liveHashes.contains($0.key) }
 
         for window in windows {
             repositionIfNeeded(window: window)
@@ -185,22 +204,49 @@ final class NotificationPlacementController {
 
     // Called immediately when a new notification window is created via AXObserver.
     func handleWindowCreated(element: AXUIElement) {
-        logWindowDiagnosticsIfNeeded(window: element, trigger: "created")
+        if diagnosticsEnabled {
+            logWindowDiagnosticsIfNeeded(window: element, trigger: "created")
+        }
         repositionIfNeeded(window: element)
+        // Run one full pass immediately in the same runloop tick.
+        moveAllNotifications()
+        scheduleImmediateResync()
     }
 
     private func isNotificationBanner(window: AXUIElement) -> Bool {
+        let elementHash = CFHash(window)
+        if let cached = bannerClassificationCache[elementHash] {
+            return cached
+        }
+
+        if let identifier = copyStringAttribute(kAXIdentifierAttribute as CFString, from: window),
+           identifier.hasPrefix("widget") {
+            return false
+        }
+
         let targetSubroles: Set<String> = ["AXNotificationCenterBanner", "AXNotificationCenterAlert"]
+
+        if let directSubrole = copyStringAttribute(kAXSubroleAttribute as CFString, from: window),
+           targetSubroles.contains(directSubrole) {
+            bannerClassificationCache[elementHash] = true
+            return true
+        }
+
         var visited = Set<CFHashCode>()
         let match = findElementWithSubrole(
             root: window,
             targetSubroles: targetSubroles,
-            visited: &visited
+            visited: &visited,
+            maxDepth: subroleSearchMaxDepth
         )
-        if match == nil {
+        let isBanner = (match != nil)
+        if isBanner {
+            bannerClassificationCache[elementHash] = true
+        }
+        if diagnosticsEnabled, match == nil {
             logWindowDiagnosticsIfNeeded(window: window, trigger: "not-matched")
         }
-        return match != nil
+        return isBanner
     }
 
     private func copyFrame(of element: AXUIElement) -> CGRect? {
@@ -264,7 +310,7 @@ final class NotificationPlacementController {
             return nil
         }
 
-        for child in children.prefix(200) {
+        for child in children.prefix(subroleSearchChildrenLimit) {
             if let found = findElementWithSubrole(
                 root: child,
                 targetSubroles: targetSubroles,
@@ -294,6 +340,7 @@ final class NotificationPlacementController {
     }
 
     private func logWindowDiagnosticsIfNeeded(window: AXUIElement, trigger: String) {
+        guard diagnosticsEnabled else { return }
         let top = roleAndSubrole(for: window)
         let signature = "\(trigger)|\(top.role)|\(top.subrole)"
         guard loggedWindowSignatures.insert(signature).inserted else { return }
@@ -330,11 +377,28 @@ final class NotificationPlacementController {
     }
 
     private func emitDiagnosticsLine(_ line: String) {
+        guard diagnosticsEnabled else { return }
         logger.notice("\(line, privacy: .public)")
         appendDiagnosticsToFile(line)
     }
 
+    private func scheduleImmediateResync() {
+        // Notification Center can animate/reflow windows for a short period.
+        // Burst-pass re-sync makes the visible position settle almost instantly.
+        immediateResyncGeneration &+= 1
+        let generation = immediateResyncGeneration
+        for idx in 1...immediateResyncPassCount {
+            let delay = immediateResyncStep * Double(idx)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self else { return }
+                guard generation == self.immediateResyncGeneration else { return }
+                self.moveAllNotifications()
+            }
+        }
+    }
+
     private func appendDiagnosticsToFile(_ line: String) {
+        guard diagnosticsEnabled else { return }
         let timestamp = diagnosticsDateFormatter.string(from: Date())
         let payload = "[\(timestamp)] \(line)\n"
         guard let data = payload.data(using: .utf8) else { return }
