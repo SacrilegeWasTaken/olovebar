@@ -99,4 +99,18 @@ environment.systemPackages = [
 You can also use nix-homebrew, you can check the configuration in my [nix repository](https://codeberg.org/sacrilegewastaken/nix)
 ## Screenshots
 
+<h4 align="center">UnixPrn Setup</h4>
+
+<p align="center">
+  <img src="Assets/unixprn.png" alt="UNIXPRN"/>
+</p>
+
+<h4 align="center">Updated Notch</h4>
+
+<p align="center">
+  <img src="Assets/notch.png" alt="Updated Notcg"/>
+</p>
+
+<h4 align="center">0.4.X collage</h4>
+
 ![Visuals](Assets/collage.png)
