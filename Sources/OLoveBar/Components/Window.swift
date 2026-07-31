@@ -15,6 +15,9 @@ final class NotchWindowState: ObservableObject {
     @Published var isHoveringPopover = false
     @Published var preferredContentWidth: CGFloat = 0
     @Published var minimumContentWidth: CGFloat = 350
+    /// Final size of the fully expanded notch window. Content is laid out at
+    /// this size even while the window is still animating towards it.
+    @Published var expandedContentSize: CGSize = .zero
 
     private var widthAnimationTask: Task<Void, Never>?
 
@@ -129,6 +132,8 @@ final class NotchWindow: NSWindow, WindowMarker {
                 self.collapsedFrame = newCollapsed
                 animateFrame(to: newCollapsed)
             }
+            // Keep the published expanded size in sync with the new screen geometry.
+            applyPreferredWidth(state.preferredContentWidth)
         }
     }
     
@@ -229,6 +234,7 @@ final class NotchWindow: NSWindow, WindowMarker {
         )
 
         expandedFrame = newFrame
+        state.expandedContentSize = newFrame.size
 
         if state.isExpanded {
             animateFrame(to: newFrame)
@@ -314,13 +320,22 @@ func setupNotchWindow<Content: View>(
 
         let container = NSView(frame: frame)
         container.wantsLayer = true
-        container.layer?.backgroundColor = .clear
+        // The window itself is the black notch shape: it stays solid while the
+        // frame animates, so the top edge never shows through during expansion.
+        container.layer?.backgroundColor = color
         container.layer?.isOpaque = false
         container.layer?.cornerRadius = config.windowCornerRadius
+        // The notch hangs from the top edge of the screen: round only the two
+        // bottom corners so the shape never visually detaches from the top.
+        // (Non-flipped layer coordinates: minY corners are the bottom ones.)
+        container.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         container.layer?.masksToBounds = true
 
         let hostingView = NSHostingView(rootView: view(window.state)
                                             .frame(maxWidth: .infinity, maxHeight: .infinity))
+        // The SwiftUI content is laid out at the final expanded size even while
+        // collapsed; it must never drive the window frame through Auto Layout.
+        hostingView.sizingOptions = []
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(hostingView)
 
