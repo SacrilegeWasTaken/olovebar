@@ -125,7 +125,7 @@ public final class VolumeModel: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &deviceAddress, 0, nil, &deviceSize, &deviceID)
-        info("Default output device: \(deviceID)")
+        debug("Default output device: \(deviceID)")
         return deviceID
     }
 
@@ -172,7 +172,7 @@ public final class VolumeModel: ObservableObject {
             return AudioDevice(id: deviceID, name: cfName?.takeRetainedValue() as String? ?? "Unknown")
         }
 
-        info("Output devices: \(audioDevices)")
+        debug("Output devices: \(audioDevices)")
         return audioDevices
     }
 

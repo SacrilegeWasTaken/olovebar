@@ -46,9 +46,13 @@ public final class DisplayBrightnessModel: ObservableObject {
         }
         
         update()
-        // Poll for external changes
+        // Poll for external changes, but only while the notch UI that shows
+        // brightness is actually expanded.
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.update() }
+            Task { @MainActor in
+                guard NotchWindowState.shared.isExpanded else { return }
+                self?.update()
+            }
         }
     }
     

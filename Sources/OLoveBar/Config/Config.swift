@@ -90,7 +90,7 @@ public final class Config: ObservableObject {
 
     private func section(_ name: String) -> TOMLTable? {
         guard let node = data?[name] else {
-            warn("Section not found: \(name)")
+            debug("Section not found: \(name)")
             return nil
         }
 
@@ -102,11 +102,14 @@ public final class Config: ObservableObject {
         }
     }
 
-    private func value(_ section: String, _ key: String) -> String? {
-        guard let sectionTable = self.section(section) else { return nil }
-        guard let node = sectionTable[key] else { return nil }
+    private func doubleValue(_ table: TOMLTable, _ key: String) -> Double? {
+        guard let node = table[key] else { return nil }
+        return node.double ?? node.int.map(Double.init) ?? node.string.flatMap(Double.init)
+    }
 
-        return node.string ?? node.int.map { String($0) } ?? node.double.map { String($0) }
+    private func intValue(_ table: TOMLTable, _ key: String) -> Int? {
+        guard let node = table[key] else { return nil }
+        return node.int ?? node.string.flatMap(Int.init)
     }
 
 
@@ -179,37 +182,32 @@ public final class Config: ObservableObject {
         ints: [(key: String, assign: (Int) -> Void)] = [],
         bools: [(key: String, assign: (Bool) -> Void)] = []
     ) {
-        info("Loading Sections")
+        guard let sectionTable = self.section(name) else { return }
+
         for (key, assign) in doubles {
-            if let value = value(name, key) {
-                //debug("Value 1: \(value)")
-                if let value: Double = Double(value) {
-                    //debug("Value 2: \(value)")
-                    assign(value)
-                    info("Loaded \(name).\(key) = \(value)")
-                } else {
-                    warn("NOT LOADED: \(name).\(key)")
-                }
+            guard sectionTable[key] != nil else { continue }
+            if let value = doubleValue(sectionTable, key) {
+                assign(value)
+                debug("Loaded \(name).\(key) = \(value)")
+            } else {
+                warn("NOT LOADED: \(name).\(key)")
             }
         }
 
         for (key, assign) in ints {
-            if let value = value(name, key) {
-                //debug("Value 11: \(value)")
-                if let value: Int = Int(value) {
-                    //debug("Value 22: \(value)")
-                    assign(value)
-                    info("Loaded \(name).\(key) = \(value)")
-                } else {
-                    warn("NOT LOADED: \(name).\(key)")
-                }
+            guard sectionTable[key] != nil else { continue }
+            if let value = intValue(sectionTable, key) {
+                assign(value)
+                debug("Loaded \(name).\(key) = \(value)")
+            } else {
+                warn("NOT LOADED: \(name).\(key)")
             }
         }
 
         for (key, assign) in bools {
-            if let sectionTable = self.section(name), let node = sectionTable[key], let boolValue = node.bool {
+            if let node = sectionTable[key], let boolValue = node.bool {
                 assign(boolValue)
-                info("Loaded \(name).\(key) = \(boolValue)")
+                debug("Loaded \(name).\(key) = \(boolValue)")
             }
         }
     }

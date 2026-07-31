@@ -7,11 +7,10 @@ class GlobalModels {
     lazy var wifiModel = WiFiModel()
     lazy var batteryModel = BatteryModel.shared
     lazy var languageModel = LanguageModel()
-    lazy var volumeModel = VolumeModel()
+    lazy var volumeModel = VolumeModel.shared
     lazy var activeAppModel = ActiveAppModel()
-    lazy var dateTimeModel = DateTimeModel()
     lazy var notesModel = NotesModel()
-    lazy var displayBrightnessModel = DisplayBrightnessModel()
+    lazy var displayBrightnessModel = DisplayBrightnessModel.shared
     lazy var keyboardBrightnessModel = KeyboardBrightnessModel()
     lazy var playerModel = PlayerModel.shared
     

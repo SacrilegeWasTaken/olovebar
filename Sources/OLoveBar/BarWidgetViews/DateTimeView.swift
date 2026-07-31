@@ -6,9 +6,6 @@ struct DateTimeWidgetView: View {
     @ObservedObject var config: Config
 
 
-    @ObservedObject var model = GlobalModels.shared.dateTimeModel
-
-    
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
             Button(action: {
