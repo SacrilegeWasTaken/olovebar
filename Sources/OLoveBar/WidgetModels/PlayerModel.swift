@@ -18,13 +18,12 @@ public final class PlayerModel: ObservableObject {
     private var scriptURL: URL?
     nonisolated(unsafe) private var lineBuffer = ""
 
+    private var helperStartedAt: Date?
+    private var helperRestartDelay: TimeInterval = 2
+    private let helperRestartDelayMax: TimeInterval = 60
+
     private init() {
         startHelper()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateProgress()
-            }
-        }
     }
 
     deinit {
@@ -74,10 +73,20 @@ public final class PlayerModel: ObservableObject {
         }
 
         process.terminationHandler = { [weak self] proc in
-            print("[warn]:[PlayerModel] Helper exited with code \(proc.terminationStatus), restarting...")
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                guard let self else { return }
+
+                // Back off exponentially on rapid failures; a helper that ran for
+                // a while gets a fresh, fast restart.
+                let uptime = self.helperStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+                if uptime > 60 {
+                    self.helperRestartDelay = 2
+                } else {
+                    self.helperRestartDelay = min(self.helperRestartDelay * 2, self.helperRestartDelayMax)
+                }
+
+                print("[warn]:[PlayerModel] Helper exited with code \(proc.terminationStatus), restarting in \(Int(self.helperRestartDelay))s...")
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.helperRestartDelay) {
                     Task { @MainActor in
                         self.startHelper()
                     }
@@ -88,6 +97,7 @@ public final class PlayerModel: ObservableObject {
         do {
             try process.run()
             self.helperProcess = process
+            self.helperStartedAt = Date()
             print("[info]:[PlayerModel] Helper process started (PID: \(process.processIdentifier))")
         } catch {
             print("[error]:[PlayerModel] Failed to start helper: \(error)")
@@ -113,12 +123,28 @@ public final class PlayerModel: ObservableObject {
         self.duration = info["duration"] as? Double ?? 0
         self.elapsedTime = info["elapsedTime"] as? Double ?? 0
         self.isPlaying = info["isPlaying"] as? Bool ?? false
+        syncProgressTimer()
 
         if let b64 = info["artworkBase64"] as? String,
            let artData = Data(base64Encoded: b64) {
             self.artwork = NSImage(data: artData)
         } else if trackChanged {
             self.artwork = nil
+        }
+    }
+
+    /// Keeps the 1s progress ticker alive only while something is playing.
+    private func syncProgressTimer() {
+        if isPlaying && duration > 0 {
+            guard progressTimer == nil else { return }
+            progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.updateProgress()
+                }
+            }
+        } else {
+            progressTimer?.invalidate()
+            progressTimer = nil
         }
     }
 
