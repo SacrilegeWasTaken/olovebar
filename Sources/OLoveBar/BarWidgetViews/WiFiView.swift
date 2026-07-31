@@ -1,6 +1,25 @@
 import SwiftUI
 import MacroAPI
 
+/// Exposes the AppKit view backing the widget so menus can anchor to it exactly.
+private final class AnchorBox {
+    weak var view: NSView?
+}
+
+private struct AnchorViewAccessor: NSViewRepresentable {
+    let box: AnchorBox
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        box.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        box.view = nsView
+    }
+}
+
 @LogFunctions(.Widgets([.wifiModel]))
 struct WiFiWidgetView: View {
     @ObservedObject var config: Config
@@ -8,9 +27,15 @@ struct WiFiWidgetView: View {
 
     @ObservedObject var model = GlobalModels.shared.wifiModel
 
-    
+    @State private var anchorBox = AnchorBox()
+
     var body: some View {
-        Button(action: { model.update() }) {
+        Button(action: {
+            model.update()
+            if let anchor = anchorBox.view {
+                WiFiMenuPresenter.shared.toggle(below: anchor)
+            }
+        }) {
             HStack(spacing: 8) {
                 Image(systemName: model.stateIcon)
                     .foregroundColor(.white)
@@ -37,6 +62,7 @@ struct WiFiWidgetView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(AnchorViewAccessor(box: anchorBox))
         .onAppear { model.update() }
     }
 }

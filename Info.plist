@@ -22,5 +22,9 @@
 	<true/>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>NSLocationUsageDescription</key>
+	<string>OLoveBar needs your location to read nearby Wi-Fi network names.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>OLoveBar needs your location to read nearby Wi-Fi network names.</string>
 </dict>
 </plist>
