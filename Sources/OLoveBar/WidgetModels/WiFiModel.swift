@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import MacroAPI
 import Network
+import CoreWLAN
 
 
 @MainActor
@@ -11,7 +12,7 @@ final class WiFiModel: ObservableObject {
     @Published var stateIcon: String = "wifi.slash"
     @Published var idealWidth: CGFloat = 120
     @Published var signalStrength: Int = 0
-    
+
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "WiFiMonitor")
 
@@ -19,58 +20,72 @@ final class WiFiModel: ObservableObject {
         setupNetworkMonitoring()
         update()
     }
-    
+
     deinit {
         monitor.cancel()
     }
-    
+
     private func setupNetworkMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
+            let interfaceTypes = path.availableInterfaces.map(\.type)
             Task { @MainActor in
+                self?.applyNetworkType(interfaceTypes: interfaceTypes)
                 self?.update()
-                self?.updateNetworkType(path: path)
             }
         }
         monitor.start(queue: queue)
     }
-    
-    private func updateNetworkType(path: NWPath) {
-        let interfaces = path.availableInterfaces
-        
-        if let interface = interfaces.first(where: { $0.type == .wifi }) {
-            updateWiFiSignal(interface: interface.name)
-            info("WiFi update - type: wifi (\(interface.name)), signal: \(signalStrength)")
-        } else if let interface = interfaces.first(where: { $0.type == .wiredEthernet }) {
+
+    private func applyNetworkType(interfaceTypes: [NWInterface.InterfaceType]) {
+        if interfaceTypes.contains(.wifi) {
+            stateIcon = "wifi"
+        } else if interfaceTypes.contains(.wiredEthernet) {
             stateIcon = "cable.connector"
-            info("WiFi update - type: ethernet (\(interface.name))")
-        } else if let interface = interfaces.first(where: { $0.type == .cellular }) {
+        } else if interfaceTypes.contains(.cellular) {
             stateIcon = "personalhotspot"
-            info("WiFi update - type: cellular (\(interface.name))")
         } else {
             stateIcon = "wifi.slash"
-            info("WiFi update - type: none")
         }
+        debug("Network type icon: \(stateIcon)")
     }
-    
-    private func updateWiFiSignal(interface: String) {
-        let cmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | awk '/ agrCtlRSSI/ {print $2}'"
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = WiFiModel.runShell(cmd)
-            let strength = Int(result) ?? 0
-            DispatchQueue.main.async {
+
+    func update() {
+        Task.detached(priority: .utility) { [weak self] in
+            // CoreWLAN gives RSSI directly. SSID may be unavailable without
+            // Location Services permission on modern macOS; fall back to
+            // networksetup in that case.
+            let interface = CWWiFiClient.shared().interface()
+            let rssi = interface?.rssiValue() ?? 0
+            let wifiActive = interface?.powerOn() ?? false
+            var ssid = interface?.ssid()
+
+            if ssid == nil, wifiActive {
+                ssid = Self.ssidViaNetworksetup()
+            }
+
+            let resolvedSSID = ssid
+            Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.signalStrength = strength
-                if strength >= -50 {
-                    self.stateIcon = "wifi"
-                } else if strength >= -60 {
-                    self.stateIcon = "wifi"
-                } else if strength >= -70 {
-                    self.stateIcon = "wifi"
+                self.signalStrength = rssi
+                self.ssid = resolvedSSID
+                if let resolvedSSID {
+                    self.idealWidth = self.calculateIdealWidth(for: resolvedSSID)
                 } else {
-                    self.stateIcon = "wifi"
+                    self.idealWidth = 100
                 }
+                self.debug("WiFi update - ssid: \(resolvedSSID ?? "<none>"), rssi: \(rssi)")
             }
         }
+    }
+
+    private nonisolated static func ssidViaNetworksetup() -> String? {
+        let cmd = """
+        en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')"; \
+        ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
+        networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\\t//p'
+        """
+        let result = runShell(cmd)
+        return result.isEmpty ? nil : result
     }
 
     /// Runs a shell command on the calling thread (must be called off MainActor).
@@ -91,48 +106,15 @@ final class WiFiModel: ObservableObject {
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func update() {
-        let cmd = """
-        en="$(networksetup -listallhardwareports | awk '/Wi-Fi|AirPort/{getline; print $NF}')"; \
-        ipconfig getsummary "$en" | grep -Fxq "  Active : FALSE" || \
-        networksetup -listpreferredwirelessnetworks "$en" | sed -n '2s/^\\t//p'
-        """
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = WiFiModel.runShell(cmd)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.info("WiFi update - raw: '\(result)'")
-                if result.isEmpty {
-                    self.ssid = nil
-                    self.idealWidth = 100
-                } else {
-                    self.ssid = result
-                    self.idealWidth = self.calculateIdealWidth(for: result)
-                }
-            }
-        }
-    }
-    
     private func calculateIdealWidth(for text: String) -> CGFloat {
-        // Basic padding
         let basePadding: CGFloat = 30
         let iconWidth: CGFloat = 20
         let spacing: CGFloat = 6
-        
         let averageCharWidth: CGFloat = 7.5
-        
+
         let textWidth = CGFloat(text.count) * averageCharWidth
-        
         let totalWidth = basePadding + iconWidth + spacing + textWidth
-        
+
         return max(100, min(totalWidth, 300))
-    }
-    
-    private func isError(_ result: String) -> Bool {
-        return result.contains("You are not associated with an AirPort network") ||
-               result.contains("not associated") ||
-               result.contains("802.11") || // WiFi type not SSID
-               result.contains("Active : FALSE") ||
-               result.contains("Error:")
     }
 }
