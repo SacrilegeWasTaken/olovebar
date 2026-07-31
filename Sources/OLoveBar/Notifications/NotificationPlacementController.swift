@@ -3,14 +3,13 @@ import AppKit
 import Combine
 import os
 
-/// Controls placement of macOS notification banners using Accessibility.
-/// This mirrors the general idea of tools like PingPlace, but is implemented
-/// specifically for OLoveBar and driven by its `Config`.
-@MainActor
-final class NotificationPlacementController {
-    static let shared = NotificationPlacementController(config: Config.shared)
+/// Performs the actual AX scanning and repositioning of notification banners.
+/// All AX traffic (synchronous IPC to the Notification Center process) runs on
+/// a private serial queue; all mutable state is confined to that queue.
+private final class NotificationScanner: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "NotificationScanner.ax", qos: .userInitiated)
+    private let isScanning = OSAllocatedUnfairLock(initialState: false)
 
-    private let config: Config
     private let logger = Logger(subsystem: "OLoveBar", category: "NotificationPlacement")
     private let diagnosticsEnabled = ProcessInfo.processInfo.environment["OLOVEBAR_AX_DEBUG"] == "1"
     private let diagnosticsLogURL: URL = {
@@ -20,22 +19,12 @@ final class NotificationPlacementController {
     }()
     private let diagnosticsMaxFileSizeBytes: UInt64 = 2 * 1024 * 1024
     private let diagnosticsDateFormatter = ISO8601DateFormatter()
-    /// Polling interval for keeping notification windows pinned in place.
-    private let repositionPollingInterval: TimeInterval = 0.07
-    /// Extra fast re-sync passes right after a new AX window appears.
-    private let immediateResyncPassCount: Int = 10
-    private let immediateResyncStep: TimeInterval = 0.012
+
     /// Bounds for recursive AX scanning on unknown windows.
     private let subroleSearchMaxDepth: Int = 36
     private let subroleSearchChildrenLimit: Int = 180
-    private var cancellables = Set<AnyCancellable>()
-    
-    private struct SendableTimer: @unchecked Sendable {
-        let timer: Timer
-    }
-    
-    private let _timer = OSAllocatedUnfairLock<SendableTimer?>(initialState: nil)
-    private let _axObserver = OSAllocatedUnfairLock<AXObserver?>(initialState: nil)
+
+    // Queue-confined state.
     /// Baseline banner origin per AX window to avoid drift over long-lived notifications.
     private var offsetBaselineOrigins = [CFHashCode: CGPoint]()
     /// De-duplicate diagnostics so AX tree logs stay readable.
@@ -43,112 +32,40 @@ final class NotificationPlacementController {
     /// Cache only positive AX classification by element hash.
     /// (Avoid caching negatives: some windows become banner-like after initial creation.)
     private var bannerClassificationCache = [CFHashCode: Bool]()
-    /// Coalesces immediate re-sync bursts when many windows appear at once.
-    private var immediateResyncGeneration: UInt64 = 0
 
-    init(config: Config) {
-        self.config = config
-        observeConfig()
-        updateRunningState()
-    }
-
-    deinit {
-        let obs = _axObserver.withLock { let o = $0; $0 = nil; return o }
-        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
-
-        Task { @MainActor in
-            boxedTimer?.timer.invalidate()
+    /// Scans Notification Center windows and repositions banners.
+    /// Skips the pass entirely if a previous one is still running.
+    /// `completion` receives the number of banner windows found (on any thread).
+    func scheduleScan(offsetX: CGFloat, offsetY: CGFloat, completion: (@Sendable (Int) -> Void)? = nil) {
+        let acquired = isScanning.withLock { scanning in
+            if scanning { return false }
+            scanning = true
+            return true
         }
+        guard acquired else { return }
 
-        if let o = obs {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
+        queue.async { [weak self] in
+            defer { self?.isScanning.withLock { $0 = false } }
+            guard let self else { return }
+            let bannerCount = self.moveAllNotifications(offsetX: offsetX, offsetY: offsetY)
+            completion?(bannerCount)
         }
     }
 
-    private func observeConfig() {
-        config.$notificationsEnabled
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateRunningState()
-            }
-            .store(in: &cancellables)
-    }
-
-    private func updateRunningState() {
-        guard config.notificationsEnabled, AXIsProcessTrusted() else {
-            stopTimer()
-            tearDownObserver()
-            offsetBaselineOrigins.removeAll(keepingCapacity: true)
-            return
+    func reset() {
+        queue.async { [weak self] in
+            self?.offsetBaselineOrigins.removeAll(keepingCapacity: true)
+            self?.bannerClassificationCache.removeAll(keepingCapacity: true)
         }
-
-        startTimerIfNeeded()
-        setupObserverIfNeeded()
-    }
-
-    private func startTimerIfNeeded() {
-        guard _timer.withLock({ $0 }) == nil else { return }
-
-        let newTimer = Timer.scheduledTimer(withTimeInterval: repositionPollingInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.tick()
-            }
-        }
-        RunLoop.main.add(newTimer, forMode: .common)
-        
-        let sendableT = SendableTimer(timer: newTimer)
-        _timer.withLock { $0 = sendableT }
-    }
-
-    private func stopTimer() {
-        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
-        boxedTimer?.timer.invalidate()
-    }
-
-    private func setupObserverIfNeeded() {
-        guard _axObserver.withLock({ $0 }) == nil else { return }
-
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
-        guard let app = apps.first else { return }
-
-        var observer: AXObserver?
-        let result = AXObserverCreate(app.processIdentifier, notificationObserverCallback, &observer)
-        guard result == .success, let observer else { return }
-
-        _axObserver.withLock { $0 = observer }
-
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
-        AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, selfPtr)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
-
-        // As a safety net, reposition already visible notification banners right away.
-        moveAllNotifications()
-    }
-
-    private func tearDownObserver() {
-        _axObserver.withLock { obs in
-            if let observer = obs {
-                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
-            }
-            obs = nil
-        }
-    }
-
-    private func tick() {
-        guard AXIsProcessTrusted() else {
-            stopTimer()
-            return
-        }
-
-        moveAllNotifications()
     }
 
     private func notificationCenterAppElement() -> AXUIElement? {
         // Notification banners are drawn by the Notification Center UI process.
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
         guard let app = apps.first else { return nil }
-        return AXUIElementCreateApplication(app.processIdentifier)
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(element, 0.5)
+        return element
     }
 
     private func copyWindows(from app: AXUIElement) -> [AXUIElement]? {
@@ -158,12 +75,12 @@ final class NotificationPlacementController {
         return array
     }
 
-    private func moveAllNotifications() {
+    private func moveAllNotifications(offsetX: CGFloat, offsetY: CGFloat) -> Int {
         guard let appElement = notificationCenterAppElement(),
               let windows = copyWindows(from: appElement) else {
             offsetBaselineOrigins.removeAll(keepingCapacity: true)
             bannerClassificationCache.removeAll(keepingCapacity: true)
-            return
+            return 0
         }
 
         // Drop stale cache entries for closed windows.
@@ -171,48 +88,42 @@ final class NotificationPlacementController {
         bannerClassificationCache = bannerClassificationCache.filter { liveHashes.contains($0.key) }
         offsetBaselineOrigins = offsetBaselineOrigins.filter { liveHashes.contains($0.key) }
 
+        var bannerCount = 0
         for window in windows {
-            repositionIfNeeded(window: window)
+            if repositionIfNeeded(window: window, offsetX: offsetX, offsetY: offsetY) {
+                bannerCount += 1
+            }
         }
+        return bannerCount
     }
 
-    private func repositionIfNeeded(window: AXUIElement) {
-        guard isNotificationBanner(window: window) else { return }
+    /// Returns true if the window is a notification banner (repositioned or already in place).
+    @discardableResult
+    private func repositionIfNeeded(window: AXUIElement, offsetX: CGFloat, offsetY: CGFloat) -> Bool {
+        guard isNotificationBanner(window: window) else { return false }
 
-        guard var frame = copyFrame(of: window) else { return }
-        guard screenFor(frame: frame) != nil else { return }
+        guard var frame = copyFrame(of: window) else { return true }
+        guard screenFor(frame: frame) != nil else { return true }
         let windowHash = CFHash(window)
-
-        let targetOrigin: CGPoint
 
         if offsetBaselineOrigins[windowHash] == nil {
             offsetBaselineOrigins[windowHash] = frame.origin
         }
-        guard let baseline = offsetBaselineOrigins[windowHash] else { return }
-        targetOrigin = CGPoint(
-            x: baseline.x + config.notificationsOffsetX,
-            y: baseline.y + config.notificationsOffsetY
+        guard let baseline = offsetBaselineOrigins[windowHash] else { return true }
+        let targetOrigin = CGPoint(
+            x: baseline.x + offsetX,
+            y: baseline.y + offsetY
         )
 
         // Debounce tiny changes to avoid unnecessary AX writes.
         if abs(frame.origin.x - targetOrigin.x) < 1.0,
            abs(frame.origin.y - targetOrigin.y) < 1.0 {
-            return
+            return true
         }
 
         frame.origin = targetOrigin
         setPosition(of: window, to: targetOrigin)
-    }
-
-    // Called immediately when a new notification window is created via AXObserver.
-    func handleWindowCreated(element: AXUIElement) {
-        if diagnosticsEnabled {
-            logWindowDiagnosticsIfNeeded(window: element, trigger: "created")
-        }
-        repositionIfNeeded(window: element)
-        // Run one full pass immediately in the same runloop tick.
-        moveAllNotifications()
-        scheduleImmediateResync()
+        return true
     }
 
     private func isNotificationBanner(window: AXUIElement) -> Bool {
@@ -384,6 +295,13 @@ final class NotificationPlacementController {
         return (role, subrole)
     }
 
+    func logWindowDiagnostics(window: AXUIElement, trigger: String) {
+        guard diagnosticsEnabled else { return }
+        queue.async { [weak self] in
+            self?.logWindowDiagnosticsIfNeeded(window: window, trigger: trigger)
+        }
+    }
+
     private func logWindowDiagnosticsIfNeeded(window: AXUIElement, trigger: String) {
         guard diagnosticsEnabled else { return }
         let top = roleAndSubrole(for: window)
@@ -427,21 +345,6 @@ final class NotificationPlacementController {
         appendDiagnosticsToFile(line)
     }
 
-    private func scheduleImmediateResync() {
-        // Notification Center can animate/reflow windows for a short period.
-        // Burst-pass re-sync makes the visible position settle almost instantly.
-        immediateResyncGeneration &+= 1
-        let generation = immediateResyncGeneration
-        for idx in 1...immediateResyncPassCount {
-            let delay = immediateResyncStep * Double(idx)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self else { return }
-                guard generation == self.immediateResyncGeneration else { return }
-                self.moveAllNotifications()
-            }
-        }
-    }
-
     private func appendDiagnosticsToFile(_ line: String) {
         guard diagnosticsEnabled else { return }
         let timestamp = diagnosticsDateFormatter.string(from: Date())
@@ -470,6 +373,184 @@ final class NotificationPlacementController {
     }
 }
 
+/// Controls placement of macOS notification banners using Accessibility.
+/// This mirrors the general idea of tools like PingPlace, but is implemented
+/// specifically for OLoveBar and driven by its `Config`.
+///
+/// Polling is event-driven: the reposition timer only runs while banner windows
+/// exist. New banners re-arm it via an AXObserver window-created notification.
+@MainActor
+final class NotificationPlacementController {
+    private let config: Config
+    private let scanner = NotificationScanner()
+
+    /// Polling interval for keeping notification windows pinned in place.
+    private let repositionPollingInterval: TimeInterval = 0.07
+    /// Consecutive banner-free scans after which polling stops until the next window event.
+    private let maxIdleTicks = 15
+    /// Extra fast re-sync passes right after a new AX window appears.
+    private let immediateResyncPassCount: Int = 10
+    private let immediateResyncStep: TimeInterval = 0.012
+
+    private var cancellables = Set<AnyCancellable>()
+    private var idleTicks = 0
+    /// Coalesces immediate re-sync bursts when many windows appear at once.
+    private var immediateResyncGeneration: UInt64 = 0
+
+    private struct SendableTimer: @unchecked Sendable {
+        let timer: Timer
+    }
+
+    private let _timer = OSAllocatedUnfairLock<SendableTimer?>(initialState: nil)
+    private let _axObserver = OSAllocatedUnfairLock<AXObserver?>(initialState: nil)
+
+    init(config: Config) {
+        self.config = config
+        observeConfig()
+        updateRunningState()
+    }
+
+    deinit {
+        let obs = _axObserver.withLock { let o = $0; $0 = nil; return o }
+        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
+
+        Task { @MainActor in
+            boxedTimer?.timer.invalidate()
+        }
+
+        if let o = obs {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(o), .defaultMode)
+        }
+    }
+
+    private func observeConfig() {
+        config.$notificationsEnabled
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateRunningState()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateRunningState() {
+        guard config.notificationsEnabled, AXIsProcessTrusted() else {
+            stopTimer()
+            tearDownObserver()
+            scanner.reset()
+            return
+        }
+
+        startTimerIfNeeded()
+        setupObserverIfNeeded()
+    }
+
+    private func startTimerIfNeeded() {
+        idleTicks = 0
+        guard _timer.withLock({ $0 }) == nil else { return }
+
+        let newTimer = Timer.scheduledTimer(withTimeInterval: repositionPollingInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.tick()
+            }
+        }
+        RunLoop.main.add(newTimer, forMode: .common)
+
+        let sendableT = SendableTimer(timer: newTimer)
+        _timer.withLock { $0 = sendableT }
+    }
+
+    private func stopTimer() {
+        let boxedTimer = _timer.withLock { let t = $0; $0 = nil; return t }
+        boxedTimer?.timer.invalidate()
+    }
+
+    private func setupObserverIfNeeded() {
+        guard _axObserver.withLock({ $0 }) == nil else { return }
+
+        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.notificationcenterui")
+        guard let app = apps.first else { return }
+
+        var observer: AXObserver?
+        let result = AXObserverCreate(app.processIdentifier, notificationObserverCallback, &observer)
+        guard result == .success, let observer else { return }
+
+        _axObserver.withLock { $0 = observer }
+
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        AXObserverAddNotification(observer, appElement, kAXWindowCreatedNotification as CFString, selfPtr)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+
+        // As a safety net, reposition already visible notification banners right away.
+        requestScan()
+    }
+
+    private func tearDownObserver() {
+        _axObserver.withLock { obs in
+            if let observer = obs {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+            }
+            obs = nil
+        }
+    }
+
+    private func tick() {
+        guard AXIsProcessTrusted() else {
+            stopTimer()
+            return
+        }
+
+        requestScan()
+    }
+
+    private func requestScan() {
+        scanner.scheduleScan(
+            offsetX: config.notificationsOffsetX,
+            offsetY: config.notificationsOffsetY
+        ) { [weak self] bannerCount in
+            Task { @MainActor [weak self] in
+                self?.handleScanResult(bannerCount: bannerCount)
+            }
+        }
+    }
+
+    private func handleScanResult(bannerCount: Int) {
+        if bannerCount > 0 {
+            idleTicks = 0
+            return
+        }
+
+        idleTicks += 1
+        if idleTicks >= maxIdleTicks {
+            // No banners for a while: pause polling until the next window event.
+            stopTimer()
+        }
+    }
+
+    // Called immediately when a new notification window is created via AXObserver.
+    func handleWindowCreated(element: AXUIElement) {
+        scanner.logWindowDiagnostics(window: element, trigger: "created")
+        startTimerIfNeeded()
+        requestScan()
+        scheduleImmediateResync()
+    }
+
+    private func scheduleImmediateResync() {
+        // Notification Center can animate/reflow windows for a short period.
+        // Burst-pass re-sync makes the visible position settle almost instantly.
+        immediateResyncGeneration &+= 1
+        let generation = immediateResyncGeneration
+        for idx in 1...immediateResyncPassCount {
+            let delay = immediateResyncStep * Double(idx)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self else { return }
+                guard generation == self.immediateResyncGeneration else { return }
+                self.requestScan()
+            }
+        }
+    }
+}
+
 private func notificationObserverCallback(observer: AXObserver, element: AXUIElement, notification: CFString, context: UnsafeMutableRawPointer?) {
     guard let context = context else { return }
     let controller = Unmanaged<NotificationPlacementController>.fromOpaque(context).takeUnretainedValue()
@@ -478,4 +559,3 @@ private func notificationObserverCallback(observer: AXObserver, element: AXUIEle
         controller?.handleWindowCreated(element: element)
     }
 }
-
