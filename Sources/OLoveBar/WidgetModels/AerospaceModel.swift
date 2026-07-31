@@ -7,17 +7,6 @@ import os
 struct WorkspaceInfo: Hashable, Identifiable {
     let id: String
     let apps: [AppInfo]
-    let updateId = UUID() 
-    
-    static func == (lhs: WorkspaceInfo, rhs: WorkspaceInfo) -> Bool {
-        lhs.id == rhs.id && lhs.apps == rhs.apps
-    }
-    
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(apps)
-        hasher.combine(updateId) 
-    }
 }
 
 struct AppInfo: Hashable, Identifiable {
@@ -26,25 +15,184 @@ struct AppInfo: Hashable, Identifiable {
     let icon: NSImage?
 }
 
+/// Resolves and caches app icons off the main thread, pre-scaled to display size
+/// so SwiftUI does not resample full-resolution icons on every frame.
+private actor AppIconCache {
+    private var cache: [String: NSImage?] = [:]
+
+    func icon(for bundleId: String) -> NSImage? {
+        if let cached = cache[bundleId] {
+            return cached
+        }
+
+        var resolved: NSImage?
+        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
+            let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+            resolved = Self.downscale(icon, to: 32)
+        }
+        cache[bundleId] = resolved
+        return resolved
+    }
+
+    private static func downscale(_ image: NSImage, to side: CGFloat) -> NSImage {
+        var proposedRect = CGRect(origin: .zero, size: CGSize(width: side, height: side))
+        guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else {
+            return image
+        }
+
+        let pixelSide = Int(side * 2)
+        guard let context = CGContext(
+            data: nil,
+            width: pixelSide,
+            height: pixelSide,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return image
+        }
+
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: pixelSide, height: pixelSide))
+        guard let scaled = context.makeImage() else {
+            return image
+        }
+
+        return NSImage(cgImage: scaled, size: NSSize(width: side, height: side))
+    }
+}
+
+/// Minimal localhost HTTP endpoint that AeroSpace's exec-on-workspace-change pings.
+/// An optional `focused=<workspace>` query parameter delivers the new focused
+/// workspace with the ping itself, ahead of any IPC round-trip.
+private final class WorkspaceChangeListener: @unchecked Sendable {
+    var onPing: (@Sendable (_ focused: String?) -> Void)?
+
+    private let port: in_port_t
+    private var serverSocket: Int32 = -1
+
+    init(port: in_port_t) {
+        self.port = port
+    }
+
+    func start() {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.run()
+        }
+    }
+
+    func stop() {
+        if serverSocket >= 0 {
+            close(serverSocket)
+            serverSocket = -1
+        }
+    }
+
+    private func run() {
+        let sock = socket(AF_INET, SOCK_STREAM, 0)
+        guard sock >= 0 else {
+            fputs("[aerospace listener] failed to create socket: errno=\(errno)\n", stderr)
+            return
+        }
+
+        var yes: Int32 = 1
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port.bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let bindResult = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(sock, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bindResult == 0 else {
+            fputs("[aerospace listener] cannot bind localhost:\(port) (errno=\(errno)); workspace-change pings disabled\n", stderr)
+            close(sock)
+            return
+        }
+
+        guard listen(sock, 5) == 0 else {
+            fputs("[aerospace listener] listen failed: errno=\(errno)\n", stderr)
+            close(sock)
+            return
+        }
+
+        serverSocket = sock
+
+        while true {
+            let client = accept(sock, nil, nil)
+            if client < 0 {
+                if errno == EINTR { continue }
+                // Socket closed (stop()) or unrecoverable error: end the thread
+                // instead of spinning on a failing accept.
+                break
+            }
+
+            let focused = Self.readFocusedParameter(client)
+            let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK"
+            _ = response.withCString { write(client, $0, strlen($0)) }
+            close(client)
+
+            onPing?(focused)
+        }
+
+        close(sock)
+    }
+
+    private static func readFocusedParameter(_ fd: Int32) -> String? {
+        var timeout = timeval(tv_sec: 0, tv_usec: 200_000)
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
+        var buffer = [UInt8](repeating: 0, count: 1024)
+        let bytesRead = read(fd, &buffer, buffer.count)
+        guard bytesRead > 0,
+              let text = String(bytes: buffer[0..<bytesRead], encoding: .utf8),
+              let requestLine = text.components(separatedBy: "\r\n").first,
+              let paramRange = requestLine.range(of: "focused=") else {
+            return nil
+        }
+
+        let rawValue = requestLine[paramRange.upperBound...].prefix { $0 != " " && $0 != "&" }
+        guard !rawValue.isEmpty else { return nil }
+        return String(rawValue).removingPercentEncoding ?? String(rawValue)
+    }
+}
+
+@MainActor
 @LogFunctions(.Widgets([.aerospaceModel]))
-final class AerospaceModel: ObservableObject, @unchecked Sendable {
+final class AerospaceModel: ObservableObject {
     @Published var workspaces: [WorkspaceInfo] = []
     @Published var focused: String?
 
-    nonisolated(unsafe) private var iconCache: [String: NSImage] = [:]
-    private let _serverSocket = OSAllocatedUnfairLock(initialState: Int32(-1))
-    private let cacheQueue = DispatchQueue(label: "AerospaceModel.iconCache")
-    private let updateQueue = DispatchQueue(label: "AerospaceModel.update", qos: .userInitiated)
-    private var isUpdating: Bool = false
-    private var pendingUpdateRequested: Bool = false
-    private let ipc = AerospaceIPC.shared
-    
+    private let client = AerospaceClient.shared
+    private let iconCache = AppIconCache()
+    private let listener = WorkspaceChangeListener(port: 43551) // TODO: make configurable
+    private var updateTask: Task<Void, Never>?
+    private var pendingUpdateRequested = false
+
     init() {
-        startHTTPServer()
+        listener.onPing = { [weak self] focused in
+            Task { @MainActor in
+                guard let self else { return }
+                if let focused {
+                    self.focused = focused
+                }
+                self.requestUpdate()
+            }
+        }
+        listener.start()
         setupWorkspaceNotifications()
-        updateData()
+        requestUpdate()
     }
-    
+
+    deinit {
+        listener.stop()
+    }
+
     private func setupWorkspaceNotifications() {
         let notifications: [Notification.Name] = [
             NSWorkspace.didActivateApplicationNotification,
@@ -53,7 +201,7 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
             NSWorkspace.didHideApplicationNotification,
             NSWorkspace.didTerminateApplicationNotification
         ]
-        
+
         notifications.forEach { name in
             NSWorkspace.shared.notificationCenter.addObserver(
                 forName: name,
@@ -61,187 +209,82 @@ final class AerospaceModel: ObservableObject, @unchecked Sendable {
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor in
-                    self?.updateFocusedOnly()
-                    self?.updateData()
+                    self?.requestUpdate()
                 }
             }
         }
     }
-    
-    private func startHTTPServer() {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
+
+    /// Coalesces concurrent refresh requests: at most one update runs at a time,
+    /// and at most one more is queued behind it.
+    func requestUpdate() {
+        if updateTask != nil {
+            pendingUpdateRequested = true
+            return
+        }
+
+        updateTask = Task { [weak self] in
+            await self?.performUpdate()
             guard let self else { return }
-            self._serverSocket.withLock { $0 = socket(AF_INET, SOCK_STREAM, 0) }
-            let serverSocket = self._serverSocket.withLock { $0 }
-            print("Socket created: \(serverSocket)")
-            
-            var addr = sockaddr_in()
-            addr.sin_family = sa_family_t(AF_INET)
-            let portNumber: in_port_t = 43551 // TODO: make configurable
-            addr.sin_port = portNumber.bigEndian
-            addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-            
-            var yes: Int32 = 1
-            setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
-            
-            let bindResult = withUnsafePointer(to: &addr) {
-                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                    bind(serverSocket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-                }
-            }
-            self.info("Bind result: \(bindResult)")
-            
-            let listenResult = listen(serverSocket, 5)
-            self.info("Listen result: \(listenResult)")
-            self.info("HTTP server started on localhost:\(portNumber)")
-            
-            while true {
-                let client = accept(serverSocket, nil, nil)
-                if client < 0 {
-                    self.info("Accept failed: \(client)")
-                    continue
-                }
-                
-                let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"
-                write(client, response, response.utf8.count)
-                close(client)
-                
-                self.info("Triggering updateData()")
-                DispatchQueue.main.async { [weak self] in
-                    self?.updateData()
-                }
+            self.updateTask = nil
+            if self.pendingUpdateRequested {
+                self.pendingUpdateRequested = false
+                self.requestUpdate()
             }
         }
     }
 
-    private func updateData() {
-        updateQueue.async { [weak self] in
-            guard let self else { return }
+    private func performUpdate() async {
+        do {
+            let windowsAnswer = try await client.request(
+                args: ["list-windows", "--all", "--format", "%{workspace}|%{app-bundle-id}"]
+            )
+            let workspacesAnswer = try await client.request(
+                args: ["list-workspaces", "--all", "--format", "%{workspace}|%{workspace-is-focused}"]
+            )
 
-            if self.isUpdating {
-                self.pendingUpdateRequested = true
-                return
+            var workspaceMap: [String: Set<String>] = [:]
+            for line in windowsAnswer.stdout.components(separatedBy: .newlines) where !line.isEmpty {
+                let parts = line.components(separatedBy: "|")
+                guard parts.count == 2 else { continue }
+                workspaceMap[parts[0], default: []].insert(parts[1])
             }
 
-            self.isUpdating = true
-            self.pendingUpdateRequested = false
-
-            defer {
-                self.isUpdating = false
-                if self.pendingUpdateRequested {
-                    self.pendingUpdateRequested = false
-                    self.updateData()
-                }
-            }
-
-            do {
-                // Run independent AeroSpace queries in parallel to minimise latency.
-                let windowsAns = try AerospaceClient.request(
-                    args: ["list-windows", "--all", "--format", "%{workspace}|%{app-bundle-id}"]
-                )
-                let windowsOutput = windowsAns.stdout
-
-                let allAns = try AerospaceClient.request(
-                    args: ["list-workspaces", "--all"]
-                )
-                let allWorkspacesOutput = allAns.stdout
-
-                let focusedAns = try AerospaceClient.request(
-                    args: ["list-workspaces", "--focused"]
-                )
-                let focused = focusedAns.stdout
-                    .components(separatedBy: .newlines)
-                    .first?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-                self.info("Focused workspace: \(focused)")
-
-                let lines = windowsOutput
-                    .components(separatedBy: .newlines)
-                    .filter { !$0.isEmpty }
-
-                var workspaceMap: [String: Set<String>] = [:]
-
-                for line in lines {
-                    let lineParts = line.components(separatedBy: "|")
-                    guard lineParts.count == 2 else { continue }
-                    let workspaceId = lineParts[0]
-                    let bundleId = lineParts[1]
-                    workspaceMap[workspaceId, default: []].insert(bundleId)
+            var workspaceInfos: [WorkspaceInfo] = []
+            var focusedWorkspace: String?
+            for line in workspacesAnswer.stdout.components(separatedBy: .newlines) where !line.isEmpty {
+                let parts = line.components(separatedBy: "|")
+                guard let workspaceId = parts.first else { continue }
+                if parts.count == 2, parts[1] == "true" {
+                    focusedWorkspace = workspaceId
                 }
 
-                let workspaceIds = allWorkspacesOutput
-                    .components(separatedBy: .newlines)
-                    .filter { !$0.isEmpty }
-
-                var workspaceInfos: [WorkspaceInfo] = []
-                for workspaceId in workspaceIds {
-                    let bundleIds = workspaceMap[workspaceId] ?? []
-                    let apps = bundleIds.sorted().map { bundleId in
-                        AppInfo(id: bundleId, bundleId: bundleId, icon: self.getAppIcon(bundleId: bundleId))
-                    }
-                    workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
+                let bundleIds = workspaceMap[workspaceId] ?? []
+                var apps: [AppInfo] = []
+                for bundleId in bundleIds.sorted() {
+                    let icon = await iconCache.icon(for: bundleId)
+                    apps.append(AppInfo(id: bundleId, bundleId: bundleId, icon: icon))
                 }
-
-                Task { @MainActor [workspaceInfos, focused] in
-                    self.workspaces = workspaceInfos
-                    self.focused = focused
-                }
-            } catch {
-                fputs("[aerospace socket error] \(error)\n", stderr)
-            }
-        }
-    }
-    
-    private func updateFocusedOnly() {
-        Task.detached { [weak self] in
-            guard let self else { return }
-            do {
-                let ans = try await self.ipc.request(args: ["list-workspaces", "--focused"])
-                let focused = ans.stdout
-                    .components(separatedBy: .newlines)
-                    .first?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                
-                await MainActor.run {
-                    self.focused = focused
-                }
-            } catch {
-                fputs("[aerospace focused error] \(error)\n", stderr)
-            }
-        }
-    }
-
-    private func getAppIcon(bundleId: String) -> NSImage? {
-        cacheQueue.sync {
-            if let cachedIcon = iconCache[bundleId] {
-                return cachedIcon
+                workspaceInfos.append(WorkspaceInfo(id: workspaceId, apps: apps))
             }
 
-            guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-                return nil
+            self.workspaces = workspaceInfos
+            if let focusedWorkspace {
+                self.focused = focusedWorkspace
             }
-            let icon = NSWorkspace.shared.icon(forFile: appURL.path)
-            iconCache[bundleId] = icon
-            return icon
+            debug("Focused workspace: \(String(describing: focusedWorkspace))")
+        } catch {
+            fputs("[aerospace socket error] \(error)\n", stderr)
         }
     }
 
     func focus(_ id: String) {
         // Optimistically update focused to feel instant, then confirm via IPC.
         focused = id
-        Task.detached { [weak self] in
+        Task { [weak self] in
             guard let self else { return }
-            _ = try? await self.ipc.request(args: ["workspace", id])
-            self.updateFocusedOnly()
-        }
-    }
-
-    deinit {
-        let sock = _serverSocket.withLock { $0 }
-        if sock >= 0 {
-            close(sock)
+            _ = try? await self.client.request(args: ["workspace", id])
+            self.requestUpdate()
         }
     }
 }
-
