@@ -3,7 +3,7 @@
 
 VERSION := $(shell uv run Script/Version.py)
 USER_SHELL := $(shell echo $$SHELL)
-TAP_DIR= "~/Projects/Utilitiestap"
+TAP_DIR= "~/Projects/Utilities/tap"
 
 default: run-app
 
@@ -40,7 +40,7 @@ deploy:
 
 
 tap:
-	TAP_DIR=$(TAP_DIR) VERSION=$(VERSION) uv run Script/Tap.py 
+	TAP_DIR=$(TAP_DIR) VERSION=$(VERSION) uv run Script/Tap.py
 
 
 release: build bundle deploy
