@@ -21,23 +21,23 @@ fileprivate class MenuStateManager: ObservableObject {
 
     static              var shared:         MenuStateManager = MenuStateManager()
     @ObservedObject     var notchState:     NotchWindowState = .shared
-    @Published          var hoveredPath:    [UUID] = []
+    @Published          var hoveredPath:    [String] = []
     private             var menuCloseTask:  Task<Void, Never>?
 
 
-    func isInPath(_ itemID: UUID) -> Bool {
+    func isInPath(_ itemID: String) -> Bool {
         hoveredPath.contains(where: { $0 == itemID })
     }
-    func addToPath(_ itemID: UUID) {
+    func addToPath(_ itemID: String) {
         hoveredPath.append(itemID)
     }
-    func removeFromPath(_ itemID: UUID) {
+    func removeFromPath(_ itemID: String) {
         hoveredPath.removeAll { $0 == itemID }
     }
     func resetPath() {
         hoveredPath = []
     }
-    func isFirst(_ itemID: UUID) -> Bool {
+    func isFirst(_ itemID: String) -> Bool {
         hoveredPath.first == itemID
     }
 

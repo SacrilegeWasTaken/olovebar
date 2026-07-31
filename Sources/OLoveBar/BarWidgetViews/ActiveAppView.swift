@@ -11,8 +11,6 @@ struct ActiveAppWidgetView: View {
 
 
     @State private var showMenuBar: Bool = false
-    @State private var showSubMenu: Bool = false
-    @State private var subMenuID: UUID!
 
 
     var body: some View {

@@ -3,24 +3,187 @@ import Foundation
 import Utilities
 import MacroAPI
 import AppKit
+@preconcurrency import ApplicationServices
 
- struct MenuItemData: Identifiable, Hashable {
-    let id = UUID()
+struct MenuItemData: Identifiable, Hashable, @unchecked Sendable {
+    /// Stable identity: the title path from the menu bar root (e.g. "File>Open…").
+    let id: String
     let title: String
     let submenu: [MenuItemData]?
-    let action: Selector?
     let keyEquivalent: String
     let keyModifiers: NSEvent.ModifierFlags
     let isEnabled: Bool
     let isSeparator: Bool
     let element: AXUIElement?
-    
+
     static func == (lhs: MenuItemData, rhs: MenuItemData) -> Bool {
         lhs.id == rhs.id
+            && lhs.title == rhs.title
+            && lhs.keyEquivalent == rhs.keyEquivalent
+            && lhs.keyModifiers == rhs.keyModifiers
+            && lhs.isEnabled == rhs.isEnabled
+            && lhs.isSeparator == rhs.isSeparator
+            && lhs.submenu == rhs.submenu
     }
-    
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+/// Blocking AX menu-tree access. Every function here performs synchronous IPC
+/// to the target application and must only run on `ActiveAppModel.axQueue`,
+/// never on the main thread.
+private enum MenuTreeReader {
+    /// Cap on how long a single AX call may block on an unresponsive app.
+    static let messagingTimeout: Float = 0.5
+    static let maxSubmenuDepth = 4
+
+    static func extractMenuItems(pid: pid_t) -> [MenuItemData] {
+        let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, messagingTimeout)
+
+        guard let menuBarItems = menuBarChildren(of: appElement) else { return [] }
+
+        var result: [MenuItemData] = []
+        for (index, item) in menuBarItems.enumerated() {
+            if index == 0 { continue } // skip the application menu
+            if let data = convertMenuItem(item, path: "", depth: 0) {
+                result.append(data)
+            }
+        }
+        return result
+    }
+
+    static func refreshElement(pid: pid_t, title: String) -> AXUIElement? {
+        let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, messagingTimeout)
+
+        guard let items = menuBarChildren(of: appElement) else { return nil }
+        for menuItem in items {
+            if let found = findElementByTitle(in: menuItem, title: title, depth: 0) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    static func isEnabled(_ element: AXUIElement) -> Bool {
+        var enabledValue: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue) == .success,
+              let enabled = enabledValue as? Bool else {
+            return true
+        }
+        return enabled
+    }
+
+    static func press(_ element: AXUIElement) -> AXError {
+        AXUIElementPerformAction(element, kAXPressAction as CFString)
+    }
+
+    private static func menuBarChildren(of appElement: AXUIElement) -> [AXUIElement]? {
+        var menuBar: AnyObject?
+        guard AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) == .success,
+              let menuBarObj = menuBar else {
+            return nil
+        }
+        // AXUIElement is a CF type; bridge always succeeds when non-nil.
+        let menuBarElement = menuBarObj as! AXUIElement
+
+        var children: AnyObject?
+        guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,
+              let items = children as? [AXUIElement] else {
+            return nil
+        }
+        return items
+    }
+
+    private static func convertMenuItem(_ element: AXUIElement, path: String, depth: Int) -> MenuItemData? {
+        var titleValue: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
+              let title = titleValue as? String else { return nil }
+
+        let itemPath = path.isEmpty ? title : "\(path)>\(title)"
+
+        var keyEquivValue: AnyObject?
+        let keyEquiv = (AXUIElementCopyAttributeValue(element, "AXMenuItemCmdChar" as CFString, &keyEquivValue) == .success)
+            ? (keyEquivValue as? String ?? "")
+            : ""
+
+        var modifiers: NSEvent.ModifierFlags = []
+        if !keyEquiv.isEmpty {
+            var modifiersValue: AnyObject?
+            let modResult = AXUIElementCopyAttributeValue(element, "AXMenuItemCmdModifiers" as CFString, &modifiersValue)
+            if modResult == .success, let modInt = modifiersValue as? Int {
+                // AX modifier bits: 1 = Shift, 2 = Option, 4 = Control, 8 = Function.
+                // Command is implied unless the Function bit is set.
+                if modInt & 1 != 0 { modifiers.insert(.shift) }
+                if modInt & 2 != 0 { modifiers.insert(.option) }
+                if modInt & 4 != 0 { modifiers.insert(.control) }
+                if modInt & 8 == 0 { modifiers.insert(.command) }
+            } else {
+                modifiers = .command
+            }
+        }
+
+        var enabledValue: AnyObject?
+        let isEnabled = (AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue) == .success)
+            ? (enabledValue as? Bool ?? true)
+            : true
+
+        let isSeparator = title.isEmpty || title == "-"
+
+        var submenu: [MenuItemData]? = nil
+        if depth < maxSubmenuDepth {
+            var childrenValue: AnyObject?
+            if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+               let children = childrenValue as? [AXUIElement],
+               let firstChild = children.first {
+                var menuChildren: AnyObject?
+                if AXUIElementCopyAttributeValue(firstChild, kAXChildrenAttribute as CFString, &menuChildren) == .success,
+                   let menuItems = menuChildren as? [AXUIElement] {
+                    submenu = menuItems.compactMap { convertMenuItem($0, path: itemPath, depth: depth + 1) }
+                }
+            }
+        }
+
+        return MenuItemData(
+            id: itemPath,
+            title: title,
+            submenu: submenu,
+            keyEquivalent: keyEquiv,
+            keyModifiers: modifiers,
+            isEnabled: isEnabled,
+            isSeparator: isSeparator,
+            element: element
+        )
+    }
+
+    private static func findElementByTitle(in element: AXUIElement, title: String, depth: Int) -> AXUIElement? {
+        var titleValue: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
+           let elementTitle = titleValue as? String, elementTitle == title {
+            return element
+        }
+
+        guard depth < maxSubmenuDepth else { return nil }
+
+        var childrenValue: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+           let children = childrenValue as? [AXUIElement],
+           let firstChild = children.first {
+            var menuChildren: AnyObject?
+            if AXUIElementCopyAttributeValue(firstChild, kAXChildrenAttribute as CFString, &menuChildren) == .success,
+               let menuItems = menuChildren as? [AXUIElement] {
+                for menuItem in menuItems {
+                    if let found = findElementByTitle(in: menuItem, title: title, depth: depth + 1) {
+                        return found
+                    }
+                }
+            }
+        }
+
+        return nil
     }
 }
 
@@ -31,22 +194,19 @@ class ActiveAppModel: ObservableObject {
     @Published var appName: String = ""
     @Published var menuItems: [MenuItemData] = []
 
+    private static let axQueue = DispatchQueue(label: "ActiveAppModel.ax", qos: .userInitiated)
+
     private var menuLoadTask: Task<Void, Never>?
     private var lastLoadedBundleID: String = ""
 
     private let maxLaunchStatusChecks = 5
-
     private let launchStatusCheckDelay: Duration = .milliseconds(500)
-
     private let maxStabilizationAttempts = 15
-
     private let stabilizationDelay: Duration = .milliseconds(150)
-  
     private let requiredStableSnapshots = 3
 
     /// Hard cap on total stabilization time to avoid long AX hammering.
     private let maxStabilizationTime: Duration = .seconds(2)
-
 
     init() {
         update()
@@ -56,7 +216,7 @@ class ActiveAppModel: ObservableObject {
     deinit {
         menuLoadTask?.cancel()
     }
-    
+
     private func setupWorkspaceNotifications() {
         let notifications: [Notification.Name] = [
             NSWorkspace.didActivateApplicationNotification,
@@ -65,7 +225,7 @@ class ActiveAppModel: ObservableObject {
             NSWorkspace.didHideApplicationNotification,
             NSWorkspace.didTerminateApplicationNotification
         ]
-        
+
         notifications.forEach { name in
             NSWorkspace.shared.notificationCenter.addObserver(
                 forName: name,
@@ -79,6 +239,14 @@ class ActiveAppModel: ObservableObject {
         }
     }
 
+    /// Runs a blocking AX operation on the dedicated background queue.
+    private static func onAXQueue<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            axQueue.async {
+                continuation.resume(returning: work())
+            }
+        }
+    }
 
     func update(forceReload: Bool = false) {
         guard let app = NSWorkspace.shared.frontmostApplication else {
@@ -100,14 +268,6 @@ class ActiveAppModel: ObservableObject {
         if appChanged {
             menuItems = []
             lastLoadedBundleID = ""
-
-            // Fast initial snapshot so that top menu appears immediately.
-            let initialItems = extractMenuItems()
-            if !initialItems.isEmpty {
-                menuItems = initialItems
-                lastLoadedBundleID = bundleID
-                debug("Initial menu snapshot loaded for \(appName), items: \(initialItems.count)")
-            }
         }
 
         ensureMenuItemsLoaded(force: forceReload || appChanged)
@@ -127,9 +287,8 @@ class ActiveAppModel: ObservableObject {
             guard let self else { return }
 
             let currentBundle = self.bundleID
-
-            // Try to find a running application that matches current bundle ID.
             let app = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == currentBundle }
+            guard let pid = app?.processIdentifier else { return }
 
             // Optionally wait for the app to finish launching before hammering AX.
             if let app {
@@ -153,13 +312,14 @@ class ActiveAppModel: ObservableObject {
                     break
                 }
 
-                let items = self.extractMenuItems()
+                let items = await Self.onAXQueue { MenuTreeReader.extractMenuItems(pid: pid) }
+                guard !Task.isCancelled, self.bundleID == currentBundle else { return }
 
                 if !items.isEmpty {
                     let nonSeparatorCount = items.filter { !$0.isSeparator }.count
                     let hasSubmenu = items.contains { ($0.submenu?.isEmpty == false) }
 
-                    // If the fast initial snapshot did not populate menuItems, do it now.
+                    // Publish the first non-empty snapshot so the menu appears quickly.
                     if self.menuItems.isEmpty {
                         self.menuItems = items
                         self.lastLoadedBundleID = self.bundleID
@@ -194,239 +354,37 @@ class ActiveAppModel: ObservableObject {
             }
         }
     }
-    
-    func performAction(for item: MenuItemData) {
-        // First try to perform an action on the cached AX element.
-        var workingElement: AXUIElement? = item.element
-        
-        // If there is no cached element, try to refetch it synchronously.
-        if workingElement == nil {
-            debug("⚠️ Element nil for '\(item.title)', attempting to reload...")
-            if let freshElement = refreshMenuItemElement(for: item) {
-                workingElement = freshElement
-                debug("✅ Successfully reloaded element for '\(item.title)'")
-            } else {
-                debug("❌ Could not reload element for '\(item.title)'")
-                ensureMenuItemsLoaded(force: true) // Refresh cache asynchronously for future clicks.
-                return
-            }
-        }
-        
-        guard let element = workingElement else {
-            return
-        }
-        
-        // Check kAXEnabledAttribute dynamically, but do not treat errors as fatal.
-        var enabledValue: AnyObject?
-        let enabledCheckResult = AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue)
-        
-        if enabledCheckResult == .success, let enabled = enabledValue as? Bool, !enabled {
-            debug("⚠️ Cannot perform action for '\(item.title)': item is currently disabled")
-            return
-        }
-        
-        // Try to perform kAXPressAction.
-        let result = AXUIElementPerformAction(element, kAXPressAction as CFString)
-        
-        if result == .success {
-            debug("✅ Performed action for: \(item.title)")
-        } else {
-            // On any error, try to refetch the element and retry.
-            let errorCode = result.rawValue
-            debug("🔄 Action failed for '\(item.title)' (code: \(errorCode)), reloading element and retrying...")
-            
-            if let freshElement = refreshMenuItemElement(for: item) {
-                // Retry with refreshed element.
-                let retryResult = AXUIElementPerformAction(freshElement, kAXPressAction as CFString)
-                if retryResult == .success {
-                    debug("✅ Successfully performed action for '\(item.title)' after reload")
-                    // Refresh cache for future clicks.
-                    ensureMenuItemsLoaded(force: true)
-                } else {
-                    debug("❌ Still failed after reload for '\(item.title)': AXError = \(retryResult.rawValue)")
-                    ensureMenuItemsLoaded(force: true)
-                }
-            } else {
-                debug("❌ Could not reload element for '\(item.title)', refreshing full menu cache...")
-                // As a last resort, synchronously reload the whole menu tree.
-                let freshItems = extractMenuItems()
-                if !freshItems.isEmpty {
-                    menuItems = freshItems
-                    lastLoadedBundleID = bundleID
-                    // Try to find matching item within freshly extracted tree.
-                    if let updatedItem = findItemInMenu(items: freshItems, matching: item) {
-                        if let updatedElement = updatedItem.element {
-                            let finalResult = AXUIElementPerformAction(updatedElement, kAXPressAction as CFString)
-                            if finalResult == .success {
-                                debug("✅ Successfully performed action for '\(item.title)' after full menu reload")
-                            } else {
-                                debug("❌ Failed even after full menu reload: AXError = \(finalResult.rawValue)")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    /// Synchronously re-fetches an AX element for a menu item by its title.
-    private func refreshMenuItemElement(for item: MenuItemData) -> AXUIElement? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        
-        var menuBar: AnyObject?
-        guard AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) == .success,
-              let menuBarObj = menuBar else { return nil }
-        let menuBarElement = menuBarObj as! AXUIElement
-        
-        var children: AnyObject?
-        guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,
-              let items = children as? [AXUIElement] else { return nil }
-        
-        // Search through main menu and its submenus by title.
-        for menuItem in items {
-            if let found = findElementByTitle(in: menuItem, title: item.title) {
-                return found
-            }
-        }
-        
-        return nil
-    }
-    
-    /// Recursively searches for a menu element with the given title.
-    private func findElementByTitle(in element: AXUIElement, title: String) -> AXUIElement? {
-        var titleValue: AnyObject?
-        if AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
-           let elementTitle = titleValue as? String, elementTitle == title {
-            return element
-        }
-        
-        // Traverse into submenu if present.
-        var childrenValue: AnyObject?
-        if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-           let children = childrenValue as? [AXUIElement], children.count > 0 {
-            if let firstChild = children.first {
-                var menuChildren: AnyObject?
-                if AXUIElementCopyAttributeValue(firstChild, kAXChildrenAttribute as CFString, &menuChildren) == .success,
-                   let menuItems = menuChildren as? [AXUIElement] {
-                    for menuItem in menuItems {
-                        if let found = findElementByTitle(in: menuItem, title: title) {
-                            return found
-                        }
-                    }
-                }
-            }
-        }
-        
-        return nil
-    }
-    
-    /// Finds a MenuItemData in a tree by matching title (recursively walks submenus).
-    private func findItemInMenu(items: [MenuItemData], matching target: MenuItemData) -> MenuItemData? {
-        for item in items {
-            // Prefer exact title match.
-            if item.title == target.title {
-                return item
-            }
-            // Recurse into submenu.
-            if let submenu = item.submenu {
-                if let found = findItemInMenu(items: submenu, matching: target) {
-                    return found
-                }
-            }
-        }
-        return nil
-    }
-    
-    private func extractMenuItems() -> [MenuItemData] {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return [] }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        
-        var menuBar: AnyObject?
-        guard AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) == .success,
-              let menuBarObj = menuBar else {
-            debug("No menuBar for \(app.localizedName ?? "")")
-            return []
-        }
-        let menuBarElement = menuBarObj as! AXUIElement
-        
-        var children: AnyObject?
-        guard AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &children) == .success,
-              let items = children as? [AXUIElement] else {
-            debug("No menuBar children")
-            return []
-        }
-        
-        debug("MenuBar items: \(items.count)")
-        var result: [MenuItemData] = []
-        for (index, item) in items.enumerated() {
-            if index == 0 { continue }
-            if let data = convertAXMenuItem(item) {
-                result.append(data)
-            }
-        }
-        debug("Extracted \(result.count) menu items")
-        return result
-    }
 
-    private func convertAXMenuItem(_ element: AXUIElement) -> MenuItemData? {
-        var titleValue: AnyObject?
-        guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue) == .success,
-              let title = titleValue as? String else { return nil }
-        
-        var keyEquivValue: AnyObject?
-        let keyEquiv = (AXUIElementCopyAttributeValue(element, "AXMenuItemCmdChar" as CFString, &keyEquivValue) == .success) ? (keyEquivValue as? String ?? "") : ""
-        
-        var modifiersValue: AnyObject?
-        var modifiers: NSEvent.ModifierFlags = []
-        if !keyEquiv.isEmpty {
-            let modResult = AXUIElementCopyAttributeValue(element, "AXMenuItemCmdModifiers" as CFString, &modifiersValue)
-            if modResult == .success, let modInt = modifiersValue as? Int {
-                // Map AX modifier bits to NSEvent.ModifierFlags
-                // Bit 0 (1): Shift
-                // Bit 1 (2): Option
-                // Bit 2 (4): Control  
-                // Bit 3 (8): Function
-                if modInt & 1 != 0 { modifiers.insert(.shift) }
-                if modInt & 2 != 0 { modifiers.insert(.option) }
-                if modInt & 4 != 0 { modifiers.insert(.control) }
-                // if modInt & 8 != 0 { modifiers.insert(.function) }
-                // Command is included unless Function is set
-                if modInt & 8 == 0 {
-                    modifiers.insert(.command)
+    func performAction(for item: MenuItemData) {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let pid = app.processIdentifier
+        let title = item.title
+        let element = item.element
+
+        Task { @MainActor [weak self] in
+            let succeeded = await Self.onAXQueue { () -> Bool in
+                var workingElement = element ?? MenuTreeReader.refreshElement(pid: pid, title: title)
+                guard var current = workingElement else { return false }
+
+                if !MenuTreeReader.isEnabled(current) {
+                    return true // item is disabled: nothing to do, no cache refresh needed
                 }
-            } else {
-                modifiers = .command
+
+                if MenuTreeReader.press(current) == .success {
+                    return true
+                }
+
+                // On failure, refetch the element by title and retry once.
+                guard let fresh = MenuTreeReader.refreshElement(pid: pid, title: title) else { return false }
+                current = fresh
+                workingElement = fresh
+                return MenuTreeReader.press(current) == .success
+            }
+
+            if !succeeded {
+                self?.debug("❌ Menu action failed for '\(title)', refreshing menu cache")
+                self?.ensureMenuItemsLoaded(force: true)
             }
         }
-        
-        var enabledValue: AnyObject?
-        let isEnabled = (AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue) == .success) ? (enabledValue as? Bool ?? true) : true
-        
-        let isSeparator = title.isEmpty || title == "-"
-        
-        var childrenValue: AnyObject?
-        var submenu: [MenuItemData]? = nil
-        if AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-           let children = childrenValue as? [AXUIElement], children.count > 0 {
-            if let firstChild = children.first {
-                var menuChildren: AnyObject?
-                if AXUIElementCopyAttributeValue(firstChild, kAXChildrenAttribute as CFString, &menuChildren) == .success,
-                   let menuItems = menuChildren as? [AXUIElement] {
-                    submenu = menuItems.compactMap { convertAXMenuItem($0) }
-                }
-            }
-        }
-        
-        return MenuItemData(
-            title: title,
-            submenu: submenu,
-            action: nil,
-            keyEquivalent: keyEquiv,
-            keyModifiers: modifiers,
-            isEnabled: isEnabled,
-            isSeparator: isSeparator,
-            element: element
-        )
     }
 }

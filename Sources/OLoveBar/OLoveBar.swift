@@ -10,6 +10,7 @@ class SilentApp: NSApplication {
 }
 
 @main
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     static func main() {
         setbuf(stdout, nil)
@@ -54,7 +55,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func setupWindows() {
-        let config = Config()
+        let config = Config.shared
         self.config = config
         
         let barHeight: CGFloat = config.barHeight
@@ -107,11 +108,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     @objc private func updateState(_ notification: Notification) {
-        guard let mainWindow, let notchWindow else { return }
-        guard let userInfo = notification.userInfo,
-              let runningApp = userInfo[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+        guard let config, config.hideWindowOnFullScreen else { return }
 
-        if isAppFullscreen(pid: runningApp.processIdentifier) {
+        // Space-change notifications carry no app info: fall back to the frontmost app.
+        let app = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)
+            ?? NSWorkspace.shared.frontmostApplication
+        guard let pid = app?.processIdentifier else { return }
+
+        // The AX fullscreen check is synchronous IPC to the target app and can
+        // block on an unresponsive process: keep it off the main thread.
+        Task.detached { [weak self] in
+            let fullscreen = Self.isAppFullscreen(pid: pid)
+            Task { @MainActor in
+                self?.applyBarVisibility(hidden: fullscreen)
+            }
+        }
+    }
+
+    @MainActor
+    private func applyBarVisibility(hidden: Bool) {
+        guard let mainWindow, let notchWindow else { return }
+        if hidden {
             mainWindow.orderOut(nil)
             notchWindow.orderOut(nil)
         } else {
@@ -120,8 +137,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func isAppFullscreen(pid: pid_t) -> Bool {
+    private nonisolated static func isAppFullscreen(pid: pid_t) -> Bool {
         let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, 0.5)
         var frontWindow: AnyObject?
         let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &frontWindow)
         guard result == .success, let window = frontWindow else { return false }
