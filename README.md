@@ -13,12 +13,12 @@
 
 All widgets are clickable and behave like native macOS menu bar widgets. You can customize the glass style of the menu bar via the **config menu** (right-click on the Apple logo widget), including:
 
-- Widget types  
-- Widget arrangement  
-- Widget width  
-- Corner rounding  
+- Widget types
+- Widget arrangement
+- Widget width
+- Corner rounding
 
-The **Aerospace widget** is updated via shell only, but it will be fully configurable soon.  
+The **Aerospace widget** is updated via shell only, but it will be fully configurable soon.
 
 ---
 
@@ -45,16 +45,16 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 - [x] Deep Aerospace integration with Aerospace to increase UI reaction speed.
 - [x] System Notification offset controls.
 - [x] Keyboard brightness controls in Notch
+- [x] Better and fast animations
+- [x] WiFi controls like native menu bar
 
 ### Planned
 
-- [ ] WiFi controls like native menu bar
 - [ ] Battery controls like native menu bar
 - [ ] Aerospace widget color configurations
 - [ ] Notch window configurations
 - [ ] Notch all control center widgets
 - [ ] Tinting app icons
-- [ ] Better and fast animations
 - [ ] CPU widget
 - [ ] Memory Widget
 - [ ] NetLoad Widget
@@ -74,7 +74,7 @@ The **Aerospace widget** is updated via shell only, but it will be fully configu
 **Homebrew**
 ```sh
 # pointing to codeberg tap repo
-brew tap sacrilegewastaken/tap https://codeberg.org/sacrilegewastaken/tap.git 
+brew tap sacrilegewastaken/tap https://codeberg.org/sacrilegewastaken/tap.git
 # pointing to github tap repo
 brew tap SacrilegeWasTaken/tap
 # now install
